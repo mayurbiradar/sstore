@@ -367,10 +367,19 @@ To remove the entire local environment:
 kind delete cluster --name sstore
 ```
 
-For later chart or values changes, redeploy without rebuilding the cluster or images:
+For Helm-only environments, later chart or values changes can be deployed without rebuilding the cluster or images:
 
 ```bash
 ./deploy-helm.sh
+```
+
+When Argo CD manages the release, commit and push chart or values changes instead. Do not run `./deploy-helm.sh` against the same namespace, because Argo CD-created resources do not have Helm release ownership metadata:
+
+```bash
+git add helm/sstore
+git commit -m "update Helm deployment"
+git push origin main
+kubectl get application sstore-dev -n argocd
 ```
 
 For example, after changing a service's `replicas` value in `helm/sstore/values.yaml`:

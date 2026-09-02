@@ -1,6 +1,4 @@
 # Copy this file to a private values-production.yaml and replace every placeholder.
-replicaCount: 2
-
 postgres:
   username: replace-me
   password: replace-me
@@ -22,10 +20,14 @@ ingress:
 services:
   product-service:
     image: registry.example.com/sstore/product-service:1.0.0
+    replicas: 2
   order-service:
     image: registry.example.com/sstore/order-service:1.0.0
+    replicas: 2
     stripeSecretKey: replace-me
   api-gateway:
     image: registry.example.com/sstore/api-gateway:1.0.0
+    replicas: 2
   frontend:
     image: registry.example.com/sstore/frontend:1.0.0
+    replicas: 2

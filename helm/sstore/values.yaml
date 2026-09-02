@@ -1,5 +1,3 @@
-replicaCount: 1
-
 imagePullSecrets: []
 
 postgres:
@@ -28,6 +26,7 @@ services:
   product-service:
     image: sstore/product-service:dev
     port: 8082
+    replicas: 1
     database: product_db
     resources:
       requests: {cpu: 250m, memory: 512Mi}
@@ -35,6 +34,7 @@ services:
   order-service:
     image: sstore/order-service:dev
     port: 8083
+    replicas: 1
     database: order_db
     stripeSecretKey: ""
     stripeSuccessUrl: https://app.sstore.local/order-success
@@ -45,12 +45,14 @@ services:
   api-gateway:
     image: sstore/api-gateway:dev
     port: 9090
+    replicas: 3
     resources:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}
   frontend:
     image: sstore/frontend:dev
     port: 80
+    replicas: 1
     resources:
       requests: {cpu: 100m, memory: 128Mi}
       limits: {cpu: 500m, memory: 512Mi}

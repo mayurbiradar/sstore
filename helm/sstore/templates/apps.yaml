@@ -60,7 +60,7 @@ metadata:
   labels:
     {{- include "sstore.labels" $ | nindent 4 }}
 spec:
-  replicas: {{ $.Values.replicaCount }}
+  replicas: {{ $config.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}

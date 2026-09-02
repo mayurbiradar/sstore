@@ -1,0 +1,95 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-bootstrap
+  labels:
+    app: keycloak
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: sstore
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: keycloak-bootstrap
+    spec:
+      serviceAccountName: default
+      restartPolicy: Never
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:latest
+          env:
+            - name: KEYCLOAK_URL
+              value: http://keycloak:8080
+            - name: KEYCLOAK_REALM
+              value: sstore
+            - name: KEYCLOAK_CLIENT_ID
+              value: sstore-frontend
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: KC_BOOTSTRAP_ADMIN_USERNAME
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: KC_BOOTSTRAP_ADMIN_PASSWORD
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              
+              echo "Waiting for Keycloak to be ready..."
+              until curl -fsS http://keycloak:8080/realms/master/.well-known/openid-configuration > /dev/null; do
+                echo "Keycloak not ready, waiting..."
+                sleep 5
+              done
+              echo "Keycloak is ready!"
+              
+              TOKEN=$(curl -s -X POST http://keycloak:8080/realms/master/protocol/openid-connect/token \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                -d "client_id=admin-cli" \
+                -d "username=${KC_BOOTSTRAP_ADMIN_USERNAME}" \
+                -d "password=${KC_BOOTSTRAP_ADMIN_PASSWORD}" \
+                -d "grant_type=password" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
+              
+              [ -z "$TOKEN" ] && echo "Failed to get admin token" && exit 1
+              echo "Got admin token!"
+              
+              REALM_EXISTS=$(curl -s -H "Authorization: Bearer $TOKEN" \
+                http://keycloak:8080/admin/realms/$KEYCLOAK_REALM | grep -o '"realm"' || echo "")
+              
+              if [ -z "$REALM_EXISTS" ]; then
+                echo "Creating realm..."
+                curl -s -X POST http://keycloak:8080/admin/realms \
+                  -H "Authorization: Bearer $TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d '{"realm":"'$KEYCLOAK_REALM'","enabled":true,"displayName":"Sstore Realm","registrationAllowed":true,"registrationEmailAsUsername":false,"resetPasswordAllowed":true,"rememberMe":true,"verifyEmail":false}' > /dev/null
+                echo "Realm created!"
+              else
+                echo "Realm exists, updating..."
+                curl -s -X PUT http://keycloak:8080/admin/realms/$KEYCLOAK_REALM \
+                  -H "Authorization: Bearer $TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d '{"realm":"'$KEYCLOAK_REALM'","enabled":true,"displayName":"Sstore Realm","registrationAllowed":true,"registrationEmailAsUsername":false,"resetPasswordAllowed":true,"rememberMe":true,"verifyEmail":false}' > /dev/null
+                echo "Realm updated!"
+              fi
+              
+              CLIENT_ID=$(curl -s -H "Authorization: Bearer $TOKEN" \
+                "http://keycloak:8080/admin/realms/$KEYCLOAK_REALM/clients?clientId=$KEYCLOAK_CLIENT_ID" \
+                | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4 || echo "")
+              
+              if [ -z "$CLIENT_ID" ]; then
+                echo "Creating client..."
+                curl -s -X POST http://keycloak:8080/admin/realms/$KEYCLOAK_REALM/clients \
+                  -H "Authorization: Bearer $TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d '{"clientId":"sstore-frontend","enabled":true,"publicClient":true,"redirectUris":["https://app.sstore.local","https://app.sstore.local/","https://app.sstore.local/callback","https://app.sstore.local/login"],"webOrigins":["https://app.sstore.local"]}' > /dev/null
+                echo "Client created!"
+              else
+                echo "Client already exists!"
+              fi
+              
+              echo "Bootstrap complete!"

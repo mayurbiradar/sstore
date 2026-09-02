@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------
+# api-gateway/src/main/resources/application.yml
+# ---------------------------------------------------------------
+
+server:
+  port: ${SERVER_PORT:9090}
+
+keycloak:
+  url: ${KEYCLOAK_URL:https://auth.sstore.local}
+  realm: ${KEYCLOAK_REALM:sstore}
+  admin-username: ${KEYCLOAK_ADMIN:admin}
+  admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+
+spring:
+  application:
+    name: api-gateway
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:https://auth.sstore.local/realms/sstore}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:https://auth.sstore.local/realms/sstore/protocol/openid-connect/certs}
+
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+
+            # ---------- Product Service -----------------------------
+            - id: product-service
+              uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/products/**,/images/**
+              filters:
+                - DedupeResponseHeader=Access-Control-Allow-Origin RETAIN_FIRST
+
+            # ---------- Order Service -------------------------------
+            - id: order-service
+              uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/orders/**
+
+# ---------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.web.servlet: DEBUG
+    org.springframework.web.client.RestClient: DEBUG

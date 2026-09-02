@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+  namespace: dev
+  labels:
+    app: keycloak
+    app.kubernetes.io/part-of: sstore
+
+spec:
+  ingressClassName: nginx
+
+  tls:
+    - hosts:
+        - auth.sstore.local
+      secretName: sstore-tls
+
+  rules:
+    - host: auth.sstore.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080

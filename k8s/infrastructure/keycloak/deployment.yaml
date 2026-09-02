@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: keycloak
+
+  labels:
+    app: keycloak
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: sstore
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: keycloak
+
+  template:
+    metadata:
+      labels:
+        app: keycloak
+        app.kubernetes.io/name: keycloak
+        app.kubernetes.io/part-of: sstore
+
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:15-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432; do
+                echo "Waiting for postgres to be ready..."
+                sleep 2
+              done
+              echo "Postgres is ready!"
+
+      containers:
+        - name: keycloak
+
+          image: quay.io/keycloak/keycloak:26.3
+
+          args:
+            - start-dev
+
+          env:
+            - name: KEYCLOAK_URL
+              value: http://localhost:8080
+            - name: KEYCLOAK_REALM
+              value: sstore
+            - name: KEYCLOAK_CLIENT_ID
+              value: sstore-frontend
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: KC_BOOTSTRAP_ADMIN_USERNAME
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: KC_BOOTSTRAP_ADMIN_PASSWORD
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+            - name: management
+              containerPort: 9000
+
+          envFrom:
+            - configMapRef:
+                name: keycloak-config
+
+            - secretRef:
+                name: keycloak-secret
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+
+            limits:
+              cpu: "1"
+              memory: 1Gi
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: management
+
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: management
+
+            initialDelaySeconds: 90
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+
+

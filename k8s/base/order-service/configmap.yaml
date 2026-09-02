@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-config
+data:
+  SERVER_PORT: "8083"
+
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/order_db"
+  SPRING_DATASOURCE_USERNAME: "admin"
+
+  JPA_DDL_AUTO: "validate"
+  JPA_SHOW_SQL: "false"
+
+  SPRING_APPLICATION_NAME: "order-service"
+
+  KEYCLOAK_ISSUER_URI: "https://auth.sstore.local/realms/sstore"
+  KEYCLOAK_JWK_SET_URI: "http://keycloak:8080/realms/sstore/protocol/openid-connect/certs"
+
+  FLYWAY_ENABLED: "true"
+
+  STRIPE_SUCCESS_URL: "https://app.sstore.local/order-success"
+  STRIPE_CANCEL_URL: "https://app.sstore.local/checkout"

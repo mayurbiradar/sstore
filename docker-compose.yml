@@ -1,0 +1,191 @@
+networks:
+  sstore-net:
+    driver: bridge
+services:
+
+  # ---------- PostgreSQL ----------
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-default_db}
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_MULTIPLE_DATABASES: auth_db,order_db,product_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./services/postgres/init/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
+    ports:
+      - "5432:5432"          # optional – expose for local DB tools
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-default_db}" # FIXED: User updated to match POSTGRES_USER
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sstore-net
+  # pgadmin:
+  #     image: dpage/pgadmin4:latest
+  #     container_name: pgadmin
+  #     environment:
+  #       PGADMIN_DEFAULT_EMAIL: admin@sstore.com
+  #       PGADMIN_DEFAULT_PASSWORD: admin
+  #     ports:
+  #       - "5050:80"
+  #     depends_on:
+  #       postgres:
+  #         condition: service_healthy
+  #     volumes:
+  #       - pgadmin-data:/var/lib/pgadmin
+  #     networks:
+  #       - sstore-net
+
+  # ---------- API Gateway ----------
+  api-gateway:
+    image: sstore/api-gateway:dev
+    pull_policy: build
+    build: ./services/api-gateway
+    container_name: api-gateway
+    restart: on-failure
+    environment:
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:-http://product-service:8082}
+      ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
+      SERVER_PORT: 9090      # <-- gateway listens on 9090
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-sstore}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8080/realms/sstore}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/sstore/protocol/openid-connect/certs}
+    depends_on:
+      - product-service
+      - order-service
+    ports:
+      - "9090:9090"         # public entry point
+    networks:
+      - sstore-net
+
+  # ---------- Keycloak ----------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3
+    container_name: keycloak
+    restart: unless-stopped
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HTTP_PORT: 8080
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
+      # PostgreSQL Database Configuration
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/auth_db
+      KC_DB_USERNAME: ${POSTGRES_USER:-admin}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sstore-net
+
+  # ---------- Keycloak bootstrap ----------
+  keycloak-bootstrap:
+    image: curlimages/curl:8.10.1
+    container_name: sstore-keycloak-bootstrap
+    restart: "no"
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-sstore}
+      KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-sstore-frontend}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./services/keycloak/bootstrap.sh:/bootstrap.sh:ro
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    depends_on:
+      - keycloak
+    networks:
+      - sstore-net
+
+  # ---------- Product Service ----------
+  product-service:
+    image: sstore/product-service:dev
+    pull_policy: build
+    build: ./services/product-service
+    container_name: product-service
+    restart: on-failure
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/product_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      SERVER_PORT: 8082
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8080/realms/sstore}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/sstore/protocol/openid-connect/certs}
+    depends_on:
+      - postgres
+    ports:
+      - "8082:8082"
+    networks:
+      - sstore-net
+
+  # ---------- Order Service ----------
+  order-service:
+    image: sstore/order-service:dev
+    pull_policy: build
+    build: ./services/order-service
+    container_name: order-service
+    restart: on-failure
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      SERVER_PORT: 8083
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8080/realms/sstore}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/sstore/protocol/openid-connect/certs}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-http://localhost/order-success}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-http://localhost/checkout}
+    depends_on:
+      - postgres
+    ports:
+      - "8083:8083"
+    networks:
+      - sstore-net
+
+  # ---------- Front‑end ----------
+  frontend:
+    image: sstore/frontend:dev
+    pull_policy: build
+    build:
+      context: ./frontend
+      args:
+        VITE_API_GATEWAY_ENDPOINT: ${VITE_API_GATEWAY_ENDPOINT:-http://localhost:9090}
+        VITE_EMAIL: ${VITE_EMAIL:-mr.mayurbiradar@gmail.com}
+        VITE_MOBILE: ${VITE_MOBILE:-+91 9021901050}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8080}
+        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-sstore}
+        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-sstore-frontend}
+        VITE_KEYCLOAK_GOOGLE_IDP_HINT: ${VITE_KEYCLOAK_GOOGLE_IDP_HINT:-google}
+    container_name: frontend
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_started
+      keycloak-bootstrap:
+        condition: service_completed_successfully
+    ports:
+      # "5173:5173"           # Vite dev server
+      # Uncomment below for a prod build that serves static files on port 80
+      - "80:80"
+    networks:
+      - sstore-net
+
+volumes:
+  pgdata:            # persists DB between runs
+  # pgadmin-data:    # persists PgAdmin data

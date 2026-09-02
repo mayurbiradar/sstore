@@ -1,0 +1,320 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-config
+  namespace: dev
+
+data:
+  KC_DB: postgres
+  KC_DB_URL: jdbc:postgresql://postgres:5432/auth_db
+
+  KC_HEALTH_ENABLED: "true"
+
+  KC_HOSTNAME: auth.sstore.local
+  KC_HOSTNAME_STRICT: "false"
+
+  # Keycloak is behind NGINX Ingress
+  KC_PROXY_HEADERS: xforwarded
+
+  # Keycloak HTTP listener inside Kubernetes
+  KC_HTTP_ENABLED: "true"
+  KC_HTTP_PORT: "8080"
+  KC_HTTP_MANAGEMENT_PORT: "9000"
+
+  # Keycloak service URL used by the bootstrap job
+  KEYCLOAK_URL: "http://keycloak:8080"
+  KEYCLOAK_REALM: "sstore"
+  KEYCLOAK_CLIENT_ID: "sstore-frontend"
+
+  bootstrap.sh: |
+    #!/bin/sh
+    set -eu
+
+    apk add --no-cache curl python3 >/dev/null 2>&1 || true
+
+    BASE_URL="${KEYCLOAK_URL:-http://keycloak:8080}"
+    REALM_NAME="${KEYCLOAK_REALM:-sstore}"
+    CLIENT_ID="${KEYCLOAK_CLIENT_ID:-sstore-frontend}"
+    ADMIN_USER="${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}"
+    ADMIN_PASSWORD="${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}"
+
+    echo "Waiting for Keycloak admin API at ${BASE_URL}..."
+
+    for i in $(seq 1 60); do
+      if curl -fsS "${BASE_URL}/health/ready" >/dev/null 2>&1; then
+        echo "Keycloak is ready!"
+        break
+      fi
+
+      echo "Keycloak not ready, waiting..."
+      sleep 5
+    done
+
+    python3 - <<'PY'
+    import json
+    import os
+    import sys
+    import time
+    from urllib import error, request, parse
+
+    base_url = os.environ.get(
+        'KEYCLOAK_URL',
+        'http://keycloak:8080'
+    )
+
+    realm_name = os.environ.get(
+        'KEYCLOAK_REALM',
+        'sstore'
+    )
+
+    client_id = os.environ.get(
+        'KEYCLOAK_CLIENT_ID',
+        'sstore-frontend'
+    )
+
+    admin_user = os.environ.get(
+        'KC_BOOTSTRAP_ADMIN_USERNAME',
+        'admin'
+    )
+
+    admin_password = os.environ.get(
+        'KC_BOOTSTRAP_ADMIN_PASSWORD',
+        'admin'
+    )
+
+    # ---------------------------------------------------------
+    # Wait for Keycloak
+    # ---------------------------------------------------------
+
+    for _ in range(60):
+        try:
+            request.urlopen(
+                f'{base_url}/health/ready',
+                timeout=5
+            )
+            break
+        except Exception:
+            time.sleep(5)
+    else:
+        raise SystemExit(
+            'Keycloak did not become ready in time'
+        )
+
+    # ---------------------------------------------------------
+    # Get master realm admin token
+    # ---------------------------------------------------------
+
+    payload = parse.urlencode({
+        'username': admin_user,
+        'password': admin_password,
+        'grant_type': 'password',
+        'client_id': 'admin-cli'
+    }).encode()
+
+    req = request.Request(
+        f'{base_url}/realms/master/protocol/openid-connect/token',
+        data=payload,
+        headers={
+            'Content-Type':
+                'application/x-www-form-urlencoded'
+        },
+        method='POST'
+    )
+
+    with request.urlopen(req, timeout=30) as resp:
+        token_data = json.loads(
+            resp.read().decode()
+        )
+
+    token = token_data.get('access_token')
+
+    if not token:
+        raise SystemExit(
+            'Could not obtain admin access token'
+        )
+
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json',
+    }
+
+    # ---------------------------------------------------------
+    # Create / update realm
+    # ---------------------------------------------------------
+
+    realm_url = (
+        f'{base_url}/admin/realms/{realm_name}'
+    )
+
+    realm_payload = {
+        'realm': realm_name,
+        'enabled': True,
+        'registrationAllowed': True,
+        'sslRequired': 'external',
+        'loginWithEmailAllowed': True,
+        'duplicateEmailsAllowed': False,
+    }
+
+    try:
+        request.urlopen(
+            request.Request(
+                realm_url,
+                headers=headers
+            ),
+            timeout=30
+        )
+
+        print(
+            f'Realm {realm_name} already exists'
+        )
+
+        req = request.Request(
+            realm_url,
+            data=json.dumps(
+                realm_payload
+            ).encode(),
+            headers=headers,
+            method='PUT'
+        )
+
+        request.urlopen(req, timeout=30)
+
+        print(
+            f'Realm {realm_name} updated'
+        )
+
+    except error.HTTPError as exc:
+
+        if exc.code != 404:
+            raise
+
+        req = request.Request(
+            f'{base_url}/admin/realms',
+            data=json.dumps(
+                realm_payload
+            ).encode(),
+            headers=headers,
+            method='POST'
+        )
+
+        request.urlopen(req, timeout=30)
+
+        print(
+            f'Realm {realm_name} created'
+        )
+
+    # ---------------------------------------------------------
+    # Desired frontend client configuration
+    # ---------------------------------------------------------
+
+    desired_client = {
+        'clientId': client_id,
+        'name': 'SStore Frontend',
+        'enabled': True,
+        'publicClient': True,
+        'protocol': 'openid-connect',
+        'standardFlowEnabled': True,
+        'directAccessGrantsEnabled': False,
+
+        'redirectUris': [
+            'https://app.sstore.local/*'
+        ],
+
+        'webOrigins': [
+            'https://app.sstore.local'
+        ],
+
+        'attributes': {
+            'pkce.code.challenge.method': 'S256'
+        }
+    }
+
+    # ---------------------------------------------------------
+    # Find existing client
+    # ---------------------------------------------------------
+
+    clients_url = (
+        f'{base_url}/admin/realms/'
+        f'{realm_name}/clients'
+        f'?clientId={parse.quote(client_id)}'
+    )
+
+    with request.urlopen(
+        request.Request(
+            clients_url,
+            headers=headers
+        ),
+        timeout=30
+    ) as resp:
+
+        clients = json.loads(
+            resp.read().decode()
+        )
+
+    # ---------------------------------------------------------
+    # Create client
+    # ---------------------------------------------------------
+
+    if not clients:
+
+        print(
+            f'Creating client {client_id}...'
+        )
+
+        req = request.Request(
+            f'{base_url}/admin/realms/'
+            f'{realm_name}/clients',
+
+            data=json.dumps(
+                desired_client
+            ).encode(),
+
+            headers=headers,
+            method='POST'
+        )
+
+        request.urlopen(
+            req,
+            timeout=30
+        )
+
+        print(
+            f'Client {client_id} created'
+        )
+
+    # ---------------------------------------------------------
+    # Update existing client
+    # ---------------------------------------------------------
+
+    else:
+
+        client_uuid = clients[0]['id']
+
+        print(
+            f'Updating client {client_id}...'
+        )
+
+        req = request.Request(
+            f'{base_url}/admin/realms/'
+            f'{realm_name}/clients/'
+            f'{client_uuid}',
+
+            data=json.dumps(
+                desired_client
+            ).encode(),
+
+            headers=headers,
+            method='PUT'
+        )
+
+        request.urlopen(
+            req,
+            timeout=30
+        )
+
+        print(
+            f'Client {client_id} updated'
+        )
+
+    print('Keycloak bootstrap complete!')
+    PY

@@ -1,0 +1,42 @@
+server:
+  port: ${SERVER_PORT:8083}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:sk_test_replace_with_your_key}
+  success-url: ${STRIPE_SUCCESS_URL:http://localhost:5173/order-success}
+  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:5173/checkout}
+
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:order-service}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/order_db}
+    username: ${SPRING_DATASOURCE_USERNAME:admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:admin}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.postgresql.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    show-sql: ${JPA_SHOW_SQL:false}
+    database-platform: ${JPA_DATABASE_PLATFORM:org.hibernate.dialect.PostgreSQLDialect}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:https://auth.sstore.local/realms/sstore}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:https://auth.sstore.local/realms/sstore/protocol/openid-connect/certs}
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
+    validate-on-migrate: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always

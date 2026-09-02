@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local TLS certificates and keys
+k8s/tls/*
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+.vite/
+
+# Java / Maven build output
+target/
+
+# IDE metadata
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# Logs
+*.log
+
+# Local tooling and temporary files
+.vscode/
+*.swp
+*.swo

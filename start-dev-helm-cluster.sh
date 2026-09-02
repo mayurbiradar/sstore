@@ -10,6 +10,7 @@ API_URL="https://api.sstore.local"
 AUTH_URL="https://auth.sstore.local"
 TLS_DIR="$ROOT_DIR/k8s/tls"
 SEALED_SECRETS_KEY_BACKUP="$TLS_DIR/sealed-secrets-key-backup.yaml"
+CLUSTER_RECREATED=false
 
 error() {
     echo "Error: $1" >&2
@@ -33,6 +34,7 @@ if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
             chmod 600 "$SEALED_SECRETS_KEY_BACKUP"
         fi
         kind delete cluster --name "$CLUSTER_NAME"
+        CLUSTER_RECREATED=true
     else
         error "Kind cluster '$CLUSTER_NAME' already exists. Use FORCE=true to recreate it."
     fi
@@ -73,7 +75,7 @@ fi
 kubectl -n kube-system rollout status deployment/sealed-secrets-controller --timeout=180s
 
 SEALED_VALUES_FILE="$ROOT_DIR/helm/sstore/values-sealed.yaml"
-if [[ ! -s "$SEALED_VALUES_FILE" ]]; then
+if [[ ! -s "$SEALED_VALUES_FILE" || "$CLUSTER_RECREATED" == true || "${RESEAL:-false}" == "true" ]]; then
     SEALED_CERT_FILE="$(mktemp)"
     trap 'rm -f "$SEALED_CERT_FILE"' EXIT
     kubeseal --fetch-cert \

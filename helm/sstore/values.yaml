@@ -5,11 +5,13 @@ secrets:
   postgresSecretName: postgres-secret
   keycloakSecretName: keycloak-secret
   orderServiceSecretName: order-service-secret
+  grafanaSecretName: grafana-admin
 
 sealedSecrets:
   postgres: {}
   keycloak: {}
   orderService: {}
+  grafana: {}
 
 postgres:
   image: postgres:16-alpine
@@ -68,6 +70,8 @@ hosts:
   frontend: app.sstore.local
   api: api.sstore.local
   keycloak: auth.sstore.local
+  prometheus: prometheus.sstore.local
+  grafana: grafana.sstore.local
 ingress:
   enabled: true
   className: nginx
@@ -83,6 +87,26 @@ persistence:
 networkPolicy:
   enabled: true
   ingressNamespace: ingress-nginx
+
+monitoring:
+  enabled: true
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    port: 9090
+    retention: 7d
+    storage: 2Gi
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+  grafana:
+    image: grafana/grafana:12.1.1
+    port: 3000
+    adminUser: admin
+    adminPassword: admin
+    storage: 2Gi
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: 500m, memory: 512Mi}
 
 postgresql:
   jdbcHost: postgres

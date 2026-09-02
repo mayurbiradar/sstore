@@ -23,6 +23,9 @@ read -r -s -p "Keycloak admin password: " keycloak_password
 printf '\n'
 read -r -s -p "Stripe secret key (leave empty to disable Stripe): " stripe_secret_key
 printf '\n'
+read -r -p "Grafana admin username: " grafana_username
+read -r -s -p "Grafana admin password: " grafana_password
+printf '\n'
 
 seal_value() {
     local value="$1"
@@ -48,6 +51,9 @@ seal_value() {
     printf '    KC_BOOTSTRAP_ADMIN_PASSWORD: %s\n' "$(seal_value "$keycloak_password" keycloak-secret)"
     printf '%s\n' '  orderService:'
     printf '    STRIPE_SECRET_KEY: %s\n' "$(seal_value "$stripe_secret_key" order-service-secret)"
+    printf '%s\n' '  grafana:'
+    printf '    GF_SECURITY_ADMIN_USER: %s\n' "$(seal_value "$grafana_username" grafana-admin)"
+    printf '    GF_SECURITY_ADMIN_PASSWORD: %s\n' "$(seal_value "$grafana_password" grafana-admin)"
 } > "$OUTPUT_FILE"
 
 chmod 600 "$OUTPUT_FILE"

@@ -9,6 +9,8 @@ hosts:
   frontend: shop.example.com
   api: api.example.com
   keycloak: auth.example.com
+  prometheus: prometheus.example.com
+  grafana: grafana.example.com
 
 ingress:
   tlsSecretName: sstore-production-tls

@@ -233,7 +233,17 @@ The Kustomize production overlay is retained for reference. The supported Kubern
 
 ## Option 3: Kubernetes with Helm
 
-Helm is the deployment path for Kubernetes environments, including production. Docker Compose remains the local development path. The chart deploys PostgreSQL, Keycloak, the Keycloak bootstrap job, all application services, and ingress:
+Helm is the deployment path for Kubernetes environments, including production. Docker Compose remains the local development path. The chart deploys PostgreSQL, Keycloak, the Keycloak bootstrap job, all application services, Prometheus, Grafana, and ingress:
+
+Monitoring is enabled by default. Prometheus scrapes the API gateway, product service, and order service Actuator metrics, while Grafana is provisioned with Prometheus as its default data source. Open `https://prometheus.sstore.local` or `https://grafana.sstore.local`. The local Grafana login defaults to `admin` / `admin`; change it for shared environments.
+
+In Grafana, the Prometheus data source URL is the internal Kubernetes service URL:
+
+```text
+http://prometheus:9090
+```
+
+Do not use `https://prometheus.sstore.local/` as the Grafana data source URL. That hostname is for opening Prometheus in a browser through ingress; Grafana accesses Prometheus inside the cluster over HTTP. The Helm chart provisions this data source automatically.
 
 ### Local Helm Run
 
@@ -254,7 +264,7 @@ BOOTSTRAP_ONLY=true ./start-dev-helm-cluster.sh
 ./deploy-helm.sh
 ```
 
-The bootstrap script automatically fetches the controller certificate and creates encrypted local-development values using `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`, and `STRIPE_SECRET_KEY` from the environment. If unset, it uses local-only dummy values (`admin` and `sk_test_dummy`). Set those variables before running the script when different values are required.
+The bootstrap script automatically fetches the controller certificate and creates encrypted local-development values using `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`, `STRIPE_SECRET_KEY`, `GRAFANA_ADMIN_USER`, and `GRAFANA_ADMIN_PASSWORD` from the environment. If unset, it uses local-only dummy values (`admin` and `sk_test_dummy`); Grafana defaults to `admin` / `admin`. Set those variables before running the script when different values are required.
 
 If using Argo CD, push the newly generated encrypted `helm/sstore/values-sealed.yaml` to the repository before running `./install-argocd.sh`. Never share or commit `k8s/tls/sealed-secrets-key-backup.yaml`; transfer that private backup securely when a developer must use the repository's existing encrypted values.
 
@@ -313,6 +323,9 @@ sealedSecrets:
 		KC_BOOTSTRAP_ADMIN_PASSWORD: <encrypted-value>
 	orderService:
 		STRIPE_SECRET_KEY: <encrypted-value>
+	grafana:
+		GF_SECURITY_ADMIN_USER: <encrypted-value>
+		GF_SECURITY_ADMIN_PASSWORD: <encrypted-value>
 ```
 
 The helper uses `kubeseal --raw` and does not write plaintext values to disk. To encrypt an individual value manually without writing its plaintext to disk:
@@ -325,6 +338,15 @@ kubeseal --raw \
 ```
 
 Commit only the encrypted values file, never the plaintext values. The Argo CD Application already loads it through `spec.source.helm.valueFiles` in [k8s/argocd/application-dev.yaml](k8s/argocd/application-dev.yaml). Argo CD renders the `SealedSecret` resources and the controller creates the Secrets.
+
+The Grafana and Prometheus Services are internal `ClusterIP` Services and are also available through the local TLS ingress. To access them without ingress, use port forwarding:
+
+```bash
+kubectl -n dev port-forward svc/grafana 3000:3000
+kubectl -n dev port-forward svc/prometheus 9090:9090
+```
+
+The monitoring NetworkPolicies allow ingress-nginx to reach both UIs, Grafana to query Prometheus, and Prometheus to scrape the three Spring Boot Actuator endpoints.
 
 #### Install Argo CD
 

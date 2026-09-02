@@ -45,9 +45,9 @@ mkdir -p "$TLS_DIR"
 mkcert \
     -cert-file "$TLS_DIR/sstore.local.pem" \
     -key-file "$TLS_DIR/sstore.local-key.pem" \
-    app.sstore.local api.sstore.local auth.sstore.local argocd.sstore.local "*.sstore.local"
+    app.sstore.local api.sstore.local auth.sstore.local prometheus.sstore.local grafana.sstore.local argocd.sstore.local "*.sstore.local"
 
-for hostname in app.sstore.local api.sstore.local auth.sstore.local argocd.sstore.local; do
+for hostname in app.sstore.local api.sstore.local auth.sstore.local prometheus.sstore.local grafana.sstore.local argocd.sstore.local; do
     grep -q "[[:space:]]$hostname$" /etc/hosts \
         || echo "127.0.0.1 $hostname" | sudo tee -a /etc/hosts >/dev/null
 done
@@ -87,6 +87,8 @@ if [[ ! -s "$SEALED_VALUES_FILE" || "$CLUSTER_RECREATED" == true || "${RESEAL:-f
         "${KEYCLOAK_ADMIN:-admin}" \
         "${KEYCLOAK_ADMIN_PASSWORD:-admin}" \
         "${STRIPE_SECRET_KEY:-sk_test_dummy}" \
+        "${GRAFANA_ADMIN_USER:-admin}" \
+        "${GRAFANA_ADMIN_PASSWORD:-admin}" \
         | KUBESEAL_BIN=kubeseal CERT_FILE="$SEALED_CERT_FILE" "$ROOT_DIR/seal-helm-values.sh"
 fi
 

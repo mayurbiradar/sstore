@@ -8,7 +8,7 @@ metadata:
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   tls:
-    - hosts: [{{ .Values.hosts.frontend }}, {{ .Values.hosts.api }}, {{ .Values.hosts.keycloak }}]
+    - hosts: [{{ .Values.hosts.frontend }}, {{ .Values.hosts.api }}, {{ .Values.hosts.keycloak }}{{- if .Values.monitoring.enabled }}, {{ .Values.hosts.prometheus }}, {{ .Values.hosts.grafana }}{{- end }}]
       secretName: {{ .Values.ingress.tlsSecretName }}
   rules:
     - host: {{ .Values.hosts.frontend }}
@@ -41,4 +41,26 @@ spec:
                 name: keycloak
                 port:
                   number: 8080
+  {{- if .Values.monitoring.enabled }}
+    - host: {{ .Values.hosts.prometheus }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: {{ .Values.monitoring.prometheus.port }}
+    - host: {{ .Values.hosts.grafana }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: {{ .Values.monitoring.grafana.port }}
+{{- end }}
 {{- end }}

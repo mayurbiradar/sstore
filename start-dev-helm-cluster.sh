@@ -35,9 +35,9 @@ mkdir -p "$TLS_DIR"
 mkcert \
     -cert-file "$TLS_DIR/sstore.local.pem" \
     -key-file "$TLS_DIR/sstore.local-key.pem" \
-    app.sstore.local api.sstore.local auth.sstore.local "*.sstore.local"
+    app.sstore.local api.sstore.local auth.sstore.local argocd.sstore.local "*.sstore.local"
 
-for hostname in app.sstore.local api.sstore.local auth.sstore.local; do
+for hostname in app.sstore.local api.sstore.local auth.sstore.local argocd.sstore.local; do
     grep -q "[[:space:]]$hostname$" /etc/hosts \
         || echo "127.0.0.1 $hostname" | sudo tee -a /etc/hosts >/dev/null
 done

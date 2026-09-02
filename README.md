@@ -218,6 +218,133 @@ FORCE=true ./start-dev-helm-cluster.sh
 
 The script creates the cluster, installs ingress-nginx, generates local TLS certificates, builds and loads application images, and runs `helm upgrade --install`.
 
+### Argo CD GitOps
+
+Argo CD runs in its own `argocd` namespace and manages the SStore Helm release in the `dev` namespace. The Git repository is the source of truth for the application.
+
+#### Prerequisites
+
+Install the local Kubernetes tools and make sure Docker Desktop is running:
+
+```bash
+brew install kubectl kind helm mkcert
+docker info
+```
+
+The installer expects an existing Kind cluster named `sstore`. Create the cluster, ingress controller, TLS certificate, and local SStore images first:
+
+```bash
+FORCE=true ./start-dev-helm-cluster.sh
+```
+
+The `FORCE=true` option deletes and recreates an existing local cluster. Omit it when the cluster does not already exist. The script adds `app.sstore.local`, `api.sstore.local`, `auth.sstore.local`, and `argocd.sstore.local` to `/etc/hosts`.
+
+#### Install Argo CD
+
+Install Argo CD and register the `sstore-dev` Application:
+
+```bash
+./install-argocd.sh
+```
+
+The installer uses server-side apply for Argo CD's large CRDs, creates the `argocd` namespace, waits for the Argo CD server, creates its TLS secret, installs the ingress, and applies [k8s/argocd/application-dev.yaml](k8s/argocd/application-dev.yaml). Re-running it is safe and does not require deleting the cluster.
+
+#### Verify Installation
+
+```bash
+kubectl get pods -n argocd
+kubectl get services -n argocd
+kubectl get ingress -n argocd
+kubectl get pods -n dev
+kubectl -n argocd get application sstore-dev
+kubectl -n argocd describe application sstore-dev
+```
+
+The expected Application status is `Synced` and `Healthy`.
+
+#### Open the Argo CD UI
+
+The installer configures ingress-nginx and the local TLS certificate. Open `https://argocd.sstore.local` and log in with username `admin`.
+
+On macOS, copy the generated initial password to the clipboard:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+	-o jsonpath='{.data.password}' | base64 -D | pbcopy
+```
+
+To print the password instead:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+	-o jsonpath='{.data.password}' | base64 -D; printf '\n'
+```
+
+If ingress is unavailable, use port forwarding:
+
+```bash
+kubectl -n argocd port-forward svc/argocd-server 8081:443
+```
+
+Then open `https://localhost:8081`.
+
+#### How Deployments Work
+
+The Application tracks the `main` branch and renders `helm/sstore`. Argo CD automatically syncs Git changes, creates the `dev` namespace, prunes resources removed from Git, and repairs manual drift.
+
+Argo CD does not build Docker images. For local Kind, rebuild and load images when application code changes, or run `./start-dev-helm-cluster.sh` for a complete local rebuild:
+
+```bash
+docker build -t sstore/api-gateway:dev services/api-gateway
+docker build -t sstore/product-service:dev services/product-service
+docker build -t sstore/order-service:dev services/order-service
+docker build -t sstore/frontend:dev frontend
+kind load docker-image sstore/api-gateway:dev --name sstore
+kind load docker-image sstore/product-service:dev --name sstore
+kind load docker-image sstore/order-service:dev --name sstore
+kind load docker-image sstore/frontend:dev --name sstore
+kubectl -n dev rollout restart deployment
+```
+
+#### Troubleshooting
+
+```bash
+kubectl -n argocd get events --sort-by=.lastTimestamp
+kubectl -n argocd logs deployment/argocd-server
+kubectl -n argocd logs statefulset/argocd-application-controller
+kubectl -n argocd describe application sstore-dev
+```
+
+If the UI reports invalid credentials, retrieve the current generated password from `argocd-initial-admin-secret`; the default password is not `admin`.
+
+If `argocd.sstore.local` does not resolve:
+
+```bash
+echo '127.0.0.1 argocd.sstore.local' | sudo tee -a /etc/hosts
+```
+
+If the Application reports image pull errors:
+
+```bash
+docker exec sstore-control-plane crictl images | grep sstore
+```
+
+#### Remove Argo CD
+
+To remove Argo CD while keeping the Kind cluster:
+
+```bash
+kubectl delete -f k8s/argocd/application-dev.yaml --ignore-not-found
+kubectl delete -f k8s/argocd/ingress.yaml --ignore-not-found
+kubectl delete namespace argocd
+```
+
+To remove the entire local environment:
+
+```bash
+kind delete cluster --name sstore
+```
+
 For later chart or values changes, redeploy without rebuilding the cluster or images:
 
 ```bash

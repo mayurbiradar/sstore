@@ -6,7 +6,7 @@ Install the complete SStore stack into a namespace:
 helm upgrade --install sstore ./helm/sstore --namespace dev --create-namespace
 ```
 
-For non-local deployments, override `hosts`, image names, credentials, and `ingress.tlsSecretName`. Keep credentials and Stripe keys in a private values file or an external secret manager.
+For non-local deployments, override `hosts`, image names, and `ingress.tlsSecretName`. For production credentials and Stripe keys, enable Sealed Secrets with encrypted values or use an external secret manager. Do not commit plaintext credentials.
 
 Validate rendering:
 

@@ -24,6 +24,10 @@ kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME" \
 test -f "$CHART_DIR/Chart.yaml" \
     || error "Helm chart not found at $CHART_DIR"
 
+SEALED_VALUES_FILE="$CHART_DIR/values-sealed.yaml"
+[[ -s "$SEALED_VALUES_FILE" ]] \
+    || error "sealed values not found at $SEALED_VALUES_FILE; run ./seal-helm-values.sh first"
+
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
 if [[ -f "$TLS_DIR/sstore.local.pem" && -f "$TLS_DIR/sstore.local-key.pem" ]]; then
@@ -38,6 +42,7 @@ helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" \
     --create-namespace \
     --wait \
     --timeout 10m \
+    --values "$SEALED_VALUES_FILE" \
     "$@"
 
 echo

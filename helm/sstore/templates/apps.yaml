@@ -10,7 +10,6 @@ data:
   SERVER_PORT: {{ $config.port | quote }}
   {{- if eq $name "product-service" }}
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
-  SPRING_DATASOURCE_USERNAME: {{ $.Values.postgres.username | quote }}
   JPA_DDL_AUTO: validate
   JPA_SHOW_SQL: "false"
   SPRING_APPLICATION_NAME: product-service
@@ -19,7 +18,6 @@ data:
   FLYWAY_ENABLED: "true"
   {{- else if eq $name "order-service" }}
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
-  SPRING_DATASOURCE_USERNAME: {{ $.Values.postgres.username | quote }}
   JPA_DDL_AUTO: validate
   JPA_SHOW_SQL: "false"
   SPRING_APPLICATION_NAME: order-service
@@ -75,6 +73,13 @@ spec:
         - name: {{ $name }}
           image: {{ $config.image }}
           imagePullPolicy: IfNotPresent
+          {{- if or (eq $name "product-service") (eq $name "order-service") }}
+          env:
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.postgresSecretName }}, key: POSTGRES_USER}}
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.postgresSecretName }}, key: POSTGRES_PASSWORD}}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ $config.port }}
@@ -82,7 +87,7 @@ spec:
           envFrom:
             - configMapRef: {name: {{ $name }}-config}
           {{- if eq $name "order-service" }}
-            - secretRef: {name: {{ $name }}-secret}
+            - secretRef: {name: {{ $.Values.secrets.orderServiceSecretName }}}
           {{- end }}
           {{- end }}
           resources:
@@ -93,12 +98,14 @@ spec:
           {{- end }}
 ---
 {{- end }}
+{{- if not .Values.secrets.useSealedSecrets }}
 apiVersion: v1
 kind: Secret
 metadata:
-  name: order-service-secret
+  name: {{ .Values.secrets.orderServiceSecretName }}
   labels:
     {{- include "sstore.labels" . | nindent 4 }}
 type: Opaque
 stringData:
   STRIPE_SECRET_KEY: {{ (index .Values.services "order-service").stripeSecretKey | quote }}
+{{- end }}

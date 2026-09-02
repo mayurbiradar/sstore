@@ -35,12 +35,15 @@ brew install kubectl kind curl mkcert
 
 Compose runs the application over HTTP using `localhost`. It builds all application images locally and automatically creates the Keycloak `sstore` realm and `sstore-frontend` client.
 
-Create local configuration and start the stack:
+Create the local environment file and start the stack. Docker Compose does not provide fallback values, so `.env` must exist and contain the required settings:
 
 ```bash
 cp .env.example .env
+chmod 600 .env
 docker compose up -d --build
 ```
+
+For local development, `.env.example` uses `admin` for the PostgreSQL and Keycloak username/password values. Replace them before sharing the environment or using it outside your machine. Keep `.env` private; it is ignored by Git.
 
 Open the application:
 
@@ -123,10 +126,11 @@ Do not use the Kubernetes `*.sstore.local` URLs with the HTTP-only Compose front
 
 ## Configuration
 
-`.env.example` contains safe local defaults. For Compose overrides:
+`.env.example` contains the complete Docker Compose configuration. Copy it to `.env` for local development, then edit `.env` for local overrides:
 
 ```bash
 cp .env.example .env
+chmod 600 .env
 ```
 
 The frontend configuration is embedded during its image build, so rebuild after changing any `VITE_*` value:
@@ -227,7 +231,7 @@ Argo CD runs in its own `argocd` namespace and manages the SStore Helm release i
 Install the local Kubernetes tools and make sure Docker Desktop is running:
 
 ```bash
-brew install kubectl kind helm mkcert
+brew install kubectl kind helm kubeseal mkcert
 docker info
 ```
 
@@ -238,6 +242,51 @@ FORCE=true ./start-dev-helm-cluster.sh
 ```
 
 The `FORCE=true` option deletes and recreates an existing local cluster. Omit it when the cluster does not already exist. The script adds `app.sstore.local`, `api.sstore.local`, `auth.sstore.local`, and `argocd.sstore.local` to `/etc/hosts`.
+
+The Helm bootstrap installs the free, open-source Sealed Secrets controller in the `kube-system` namespace. The controller decrypts `SealedSecret` resources inside Kubernetes and creates the corresponding Secrets. The private decryption key stays in the cluster; only encrypted values should be committed to Git.
+
+To enable sealed secrets, first fetch the controller certificate after the cluster is running:
+
+```bash
+kubeseal --fetch-cert \
+	--controller-name sealed-secrets-controller \
+	--controller-namespace kube-system > /tmp/sstore-sealed-secrets-cert.pem
+```
+
+Run the helper below and enter the values at its hidden prompts. It writes only encrypted values to `helm/sstore/values-sealed.yaml`:
+
+```bash
+KUBESEAL_BIN="$(brew --prefix kubeseal)/bin/kubeseal" ./seal-helm-values.sh
+```
+
+The generated file must contain:
+
+```yaml
+secrets:
+	useSealedSecrets: true
+sealedSecrets:
+	postgres:
+		POSTGRES_USER: <encrypted-value>
+		POSTGRES_PASSWORD: <encrypted-value>
+	keycloak:
+		KC_DB_USERNAME: <encrypted-value>
+		KC_DB_PASSWORD: <encrypted-value>
+		KC_BOOTSTRAP_ADMIN_USERNAME: <encrypted-value>
+		KC_BOOTSTRAP_ADMIN_PASSWORD: <encrypted-value>
+	orderService:
+		STRIPE_SECRET_KEY: <encrypted-value>
+```
+
+The helper uses `kubeseal --raw` and does not write plaintext values to disk. To encrypt an individual value manually without writing its plaintext to disk:
+
+```bash
+kubeseal --raw \
+	--from-file=<(printf %s "$POSTGRES_PASSWORD") \
+	--name postgres-secret --namespace dev \
+	--cert /tmp/sstore-sealed-secrets-cert.pem
+```
+
+Commit only the encrypted values file, never the plaintext values. Add the file under `spec.source.helm.valueFiles` in [k8s/argocd/application-dev.yaml](k8s/argocd/application-dev.yaml), then push it to Git. Argo CD will render the `SealedSecret` resources and the controller will create the Secrets. The current default `values.yaml` remains suitable for local development until this setup is enabled.
 
 #### Install Argo CD
 
@@ -292,7 +341,13 @@ Then open `https://localhost:8081`.
 
 The Application tracks the `main` branch and renders `helm/sstore`. Argo CD automatically syncs Git changes, creates the `dev` namespace, prunes resources removed from Git, and repairs manual drift.
 
-Argo CD does not build Docker images. For local Kind, rebuild and load images when application code changes, or run `./start-dev-helm-cluster.sh` for a complete local rebuild:
+Argo CD is a Kubernetes continuous delivery (CD) and GitOps tool, not a continuous integration (CI) tool. It does not build Docker images, run tests, or publish images. CI tools such as GitHub Actions, GitLab CI, Jenkins, or Tekton handle those tasks. A typical workflow is:
+
+```text
+Code commit -> CI builds and tests -> CI publishes an image -> Git manifest or Helm values change -> Argo CD syncs Kubernetes
+```
+
+Helm is not required by Argo CD itself. Argo CD can deploy plain Kubernetes YAML, Kustomize, Jsonnet, or Helm charts. This repository uses Helm as Argo CD's manifest source at `helm/sstore`, so Helm chart and values changes should be committed and pushed to Git for Argo CD to deploy. For local Kind, rebuild and load images when application code changes, or run `./start-dev-helm-cluster.sh` for a complete local rebuild:
 
 ```bash
 docker build -t sstore/api-gateway:dev services/api-gateway

@@ -1,12 +1,8 @@
 # Copy this file to a private values-production.yaml and replace every placeholder.
 postgres:
-  username: replace-me
-  password: replace-me
   storage: 20Gi
 
 keycloak:
-  adminUsername: replace-me
-  adminPassword: replace-me
   hostname: auth.example.com
 
 hosts:

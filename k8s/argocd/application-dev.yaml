@@ -13,6 +13,8 @@ spec:
     path: helm/sstore
     helm:
       releaseName: sstore
+      valueFiles:
+        - values-sealed.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: dev

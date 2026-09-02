@@ -9,9 +9,9 @@ services:
     container_name: postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-default_db}
-      POSTGRES_USER: ${POSTGRES_USER:-admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_MULTIPLE_DATABASES: auth_db,order_db,product_db
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -21,8 +21,8 @@ services:
     healthcheck:
       test:
         [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-default_db}" # FIXED: User updated to match POSTGRES_USER
+           "CMD-SHELL",
+           "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
         ]
       interval: 10s
       timeout: 5s
@@ -53,15 +53,15 @@ services:
     container_name: api-gateway
     restart: on-failure
     environment:
-      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:-http://product-service:8082}
-      ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL}
+      ORDER_SERVICE_URL: ${ORDER_SERVICE_URL}
       SERVER_PORT: 9090      # <-- gateway listens on 9090
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-sstore}
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8080/realms/sstore}
-      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/sstore/protocol/openid-connect/certs}
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
     depends_on:
       - product-service
       - order-service
@@ -77,15 +77,15 @@ services:
     restart: unless-stopped
     command: start-dev
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HTTP_PORT: 8080
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
       # PostgreSQL Database Configuration
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/auth_db
-      KC_DB_USERNAME: ${POSTGRES_USER:-admin}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "8080:8080"
     depends_on:
@@ -101,10 +101,10 @@ services:
     restart: "no"
     environment:
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-sstore}
-      KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-sstore-frontend}
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
     volumes:
       - ./services/keycloak/bootstrap.sh:/bootstrap.sh:ro
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
@@ -122,11 +122,11 @@ services:
     restart: on-failure
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/product_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SERVER_PORT: 8082
-      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8080/realms/sstore}
-      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/sstore/protocol/openid-connect/certs}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
     depends_on:
       - postgres
     ports:
@@ -143,14 +143,14 @@ services:
     restart: on-failure
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SERVER_PORT: 8083
-      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8080/realms/sstore}
-      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/sstore/protocol/openid-connect/certs}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
-      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-http://localhost/order-success}
-      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-http://localhost/checkout}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL}
     depends_on:
       - postgres
     ports:
@@ -165,13 +165,13 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_GATEWAY_ENDPOINT: ${VITE_API_GATEWAY_ENDPOINT:-http://localhost:9090}
-        VITE_EMAIL: ${VITE_EMAIL:-mr.mayurbiradar@gmail.com}
-        VITE_MOBILE: ${VITE_MOBILE:-+91 9021901050}
-        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8080}
-        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-sstore}
-        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-sstore-frontend}
-        VITE_KEYCLOAK_GOOGLE_IDP_HINT: ${VITE_KEYCLOAK_GOOGLE_IDP_HINT:-google}
+        VITE_API_GATEWAY_ENDPOINT: ${VITE_API_GATEWAY_ENDPOINT}
+        VITE_EMAIL: ${VITE_EMAIL}
+        VITE_MOBILE: ${VITE_MOBILE}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL}
+        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM}
+        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID}
+        VITE_KEYCLOAK_GOOGLE_IDP_HINT: ${VITE_KEYCLOAK_GOOGLE_IDP_HINT}
     container_name: frontend
     restart: unless-stopped
     depends_on:

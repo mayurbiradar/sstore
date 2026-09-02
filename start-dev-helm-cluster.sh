@@ -55,6 +55,11 @@ kubectl -n ingress-nginx patch deployment ingress-nginx-controller \
     || true
 
 kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=180s
+
+kubectl apply -f \
+    https://github.com/bitnami-labs/sealed-secrets/releases/latest/download/controller.yaml
+kubectl -n kube-system rollout status deployment/sealed-secrets-controller --timeout=180s
+
 kubectl create namespace "$NAMESPACE"
 kubectl -n "$NAMESPACE" create secret tls sstore-tls \
     --cert="$TLS_DIR/sstore.local.pem" \
@@ -82,11 +87,16 @@ for image in \
     kind load docker-image "$image" --name "$CLUSTER_NAME"
 done
 
+SEALED_VALUES_FILE="$ROOT_DIR/helm/sstore/values-sealed.yaml"
+[[ -s "$SEALED_VALUES_FILE" ]] \
+    || error "sealed values not found at $SEALED_VALUES_FILE; run ./seal-helm-values.sh first"
+
 helm upgrade --install sstore "$ROOT_DIR/helm/sstore" \
     --namespace "$NAMESPACE" \
     --create-namespace \
     --wait \
     --timeout 10m \
+    --values "$SEALED_VALUES_FILE" \
     "$@"
 
 kubectl get pods,services,ingress -n "$NAMESPACE"

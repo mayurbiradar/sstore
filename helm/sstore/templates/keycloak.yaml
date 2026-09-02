@@ -1,3 +1,4 @@
+{{- if not .Values.secrets.useSealedSecrets }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -10,6 +11,7 @@ stringData:
   KC_DB_PASSWORD: {{ .Values.postgres.password | quote }}
   KC_BOOTSTRAP_ADMIN_USERNAME: {{ .Values.keycloak.adminUsername | quote }}
   KC_BOOTSTRAP_ADMIN_PASSWORD: {{ .Values.keycloak.adminPassword | quote }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -20,7 +22,6 @@ metadata:
 data:
   KC_DB: postgres
   KC_DB_URL: jdbc:postgresql://postgres:5432/auth_db
-  KC_DB_USERNAME: {{ .Values.postgres.username | quote }}
   KC_HEALTH_ENABLED: "true"
   KC_HOSTNAME: {{ .Values.keycloak.hostname | quote }}
   KC_HOSTNAME_STRICT: "false"
@@ -75,7 +76,7 @@ spec:
           args: [start-dev]
           envFrom:
             - configMapRef: {name: keycloak-config}
-            - secretRef: {name: keycloak-secret}
+            - secretRef: {name: {{ .Values.secrets.keycloakSecretName }}}
           ports:
             - {name: http, containerPort: 8080}
             - {name: management, containerPort: 9000}

@@ -24,8 +24,8 @@ spec:
             - {name: KEYCLOAK_URL, value: http://keycloak:8080}
             - {name: KEYCLOAK_REALM, value: {{ .Values.keycloak.realm | quote }}}
             - {name: KEYCLOAK_CLIENT_ID, value: {{ .Values.keycloak.clientId | quote }}}
-            - {name: KC_BOOTSTRAP_ADMIN_USERNAME, valueFrom: {secretKeyRef: {name: keycloak-secret, key: KC_BOOTSTRAP_ADMIN_USERNAME}}}
-            - {name: KC_BOOTSTRAP_ADMIN_PASSWORD, valueFrom: {secretKeyRef: {name: keycloak-secret, key: KC_BOOTSTRAP_ADMIN_PASSWORD}}}
+            - {name: KC_BOOTSTRAP_ADMIN_USERNAME, valueFrom: {secretKeyRef: {name: {{ .Values.secrets.keycloakSecretName }}, key: KC_BOOTSTRAP_ADMIN_USERNAME}}}
+            - {name: KC_BOOTSTRAP_ADMIN_PASSWORD, valueFrom: {secretKeyRef: {name: {{ .Values.secrets.keycloakSecretName }}, key: KC_BOOTSTRAP_ADMIN_PASSWORD}}}
           command: [/bin/sh, -c]
           args:
             - |

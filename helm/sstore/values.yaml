@@ -45,7 +45,7 @@ services:
   api-gateway:
     image: sstore/api-gateway:dev
     port: 9090
-    replicas: 3
+    replicas: 1
     resources:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}

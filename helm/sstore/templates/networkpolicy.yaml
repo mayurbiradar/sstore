@@ -213,6 +213,14 @@ spec:
       ports:
         - port: 8080
           protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: keycloak-bootstrap
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - port: 8080
+          protocol: TCP
   egress:
     - to:
         - podSelector:
@@ -221,6 +229,40 @@ spec:
               app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
         - port: 5432
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-bootstrap-traffic
+  labels:
+    {{- include "sstore.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak-bootstrap
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: keycloak
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - port: 8080
           protocol: TCP
     - to:
         - namespaceSelector:

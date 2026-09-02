@@ -328,6 +328,12 @@ kubectl get networkpolicies -n dev
 
 When using a different ingress controller namespace, update `networkPolicy.ingressNamespace`. The Kubernetes network plugin must support NetworkPolicy enforcement; the default Kind networking setup may accept the resources without enforcing them.
 
+##### Drawbacks When NetworkPolicies Are Disabled
+
+When `networkPolicy.enabled` is `false`, Kubernetes does not restrict pod-to-pod traffic in the namespace. Any pod that can run in the namespace may be able to connect directly to product service, order service, Keycloak, or PostgreSQL through their internal Kubernetes Services.
+
+Application authentication still protects HTTP endpoints, but it does not prevent network connections or port scanning. A compromised pod could therefore reach internal services directly, bypass the API gateway's intended routing and controls, or attempt attacks against databases and other service ports. Keep policies enabled in production and use an enforcing CNI.
+
 #### Troubleshooting
 
 ```bash

@@ -86,7 +86,7 @@ spec:
                 curl -s -X POST http://keycloak:8080/admin/realms/$KEYCLOAK_REALM/clients \
                   -H "Authorization: Bearer $TOKEN" \
                   -H "Content-Type: application/json" \
-                  -d '{"clientId":"sstore-frontend","enabled":true,"publicClient":true,"redirectUris":["https://app.sstore.local","https://app.sstore.local/","https://app.sstore.local/callback","https://app.sstore.local/login"],"webOrigins":["https://app.sstore.local"]}' > /dev/null
+                  -d '{"clientId":"sstore-frontend","enabled":true,"publicClient":true,"redirectUris":["https://app.sstore.local","https://app.sstore.local/","https://app.sstore.local/callback","https://app.sstore.local/login","https://app.sstore.local/*"],"webOrigins":["https://app.sstore.local"]}' > /dev/null
                 echo "Client created!"
               else
                 echo "Client already exists!"

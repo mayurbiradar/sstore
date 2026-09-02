@@ -1,0 +1,46 @@
+{{- if .Values.bootstrap.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "sstore.fullname" . }}-keycloak-bootstrap
+  labels:
+    {{- include "sstore.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak-bootstrap
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: bootstrap
+          image: {{ .Values.bootstrap.image }}
+          env:
+            - {name: KEYCLOAK_URL, value: http://keycloak:8080}
+            - {name: KEYCLOAK_REALM, value: {{ .Values.keycloak.realm | quote }}}
+            - {name: KEYCLOAK_CLIENT_ID, value: {{ .Values.keycloak.clientId | quote }}}
+            - {name: KC_BOOTSTRAP_ADMIN_USERNAME, valueFrom: {secretKeyRef: {name: keycloak-secret, key: KC_BOOTSTRAP_ADMIN_USERNAME}}}
+            - {name: KC_BOOTSTRAP_ADMIN_PASSWORD, valueFrom: {secretKeyRef: {name: keycloak-secret, key: KC_BOOTSTRAP_ADMIN_PASSWORD}}}
+          command: [/bin/sh, -c]
+          args:
+            - |
+              set -eu
+              until curl -fsS "$KEYCLOAK_URL/realms/master/.well-known/openid-configuration" >/dev/null; do sleep 5; done
+              token=$(curl -s -X POST "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" -H 'Content-Type: application/x-www-form-urlencoded' -d client_id=admin-cli -d "username=$KC_BOOTSTRAP_ADMIN_USERNAME" -d "password=$KC_BOOTSTRAP_ADMIN_PASSWORD" -d grant_type=password | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
+              test -n "$token"
+              realm_url="$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM"
+              if curl -sf -H "Authorization: Bearer $token" "$realm_url" >/dev/null; then
+                curl -sf -X PUT "$realm_url" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{"enabled":true,"registrationAllowed":true}' >/dev/null
+              else
+                curl -sf -X POST "$KEYCLOAK_URL/admin/realms" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{"realm":"'$KEYCLOAK_REALM'","enabled":true,"registrationAllowed":true}' >/dev/null
+              fi
+              clients=$(curl -sf -H "Authorization: Bearer $token" "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM/clients?clientId=$KEYCLOAK_CLIENT_ID")
+              if ! printf '%s' "$clients" | grep -q '"clientId":"'$KEYCLOAK_CLIENT_ID'"'; then
+                curl -sf -X POST "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM/clients" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{"clientId":"'$KEYCLOAK_CLIENT_ID'","enabled":true,"publicClient":true,"redirectUris":["https://'{{ .Values.hosts.frontend }}'/*"],"webOrigins":["https://'{{ .Values.hosts.frontend }}'"]}' >/dev/null
+              fi
+{{- end }}

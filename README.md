@@ -65,7 +65,7 @@ Use `docker compose down -v` only when you want to delete the local PostgreSQL d
 
 ## Option 2: Kubernetes with Kind
 
-The Kubernetes workflow creates a local Kind cluster named `sstore`, generates trusted local TLS certificates, installs ingress-nginx, builds and loads the same application images used by Compose, deploys PostgreSQL and Keycloak, creates the Keycloak realm/client, and applies `k8s/overlays/dev`.
+The Kubernetes workflow creates a local Kind cluster named `sstore`, generates trusted local TLS certificates, installs ingress-nginx, builds and loads the same application images used by Compose, and deploys the stack with Kustomize.
 
 Start the complete development environment:
 
@@ -105,7 +105,7 @@ Inspect Kubernetes resources:
 kubectl get pods -n dev
 kubectl get svc -n dev
 kubectl get ingress -n dev
-kubectl logs -n dev job/keycloak-bootstrap
+kubectl get events -n dev --sort-by=.lastTimestamp
 ```
 
 ## Compose and Kubernetes Profiles
@@ -156,8 +156,9 @@ docker compose up -d --build frontend keycloak keycloak-bootstrap
 If Kubernetes bootstrap appears stuck, inspect it with:
 
 ```bash
-kubectl -n dev get job keycloak-bootstrap
-kubectl -n dev logs job/keycloak-bootstrap
+kubectl -n dev get pods
+kubectl -n dev describe pod <pod-name>
+helm status sstore -n dev
 ```
 
 The bootstrap checks Keycloak through the `keycloak:8080` Service endpoint.
@@ -170,10 +171,10 @@ Validate Compose without starting containers:
 docker compose config
 ```
 
-Render Kubernetes manifests without applying them:
+Render Helm Kubernetes manifests without applying them:
 
 ```bash
-kubectl kustomize k8s/overlays/dev
+helm template sstore ./helm/sstore --namespace dev
 ```
 
 Build the frontend directly:
@@ -195,9 +196,75 @@ services/order-service/           Order service and Dockerfile
 services/keycloak/                Compose Keycloak bootstrap script
 services/postgres/                PostgreSQL initialization files
 k8s/                              Kind, Kustomize, ingress, and infrastructure manifests
+helm/sstore/                      Helm chart for Kubernetes deployments
 start-dev-cluster.sh              Local Kubernetes bootstrap entry point
 docker-compose.yml                Local Docker Compose entry point
 docs/                             Architecture, deployment, and development documentation
 ```
 
-The Kubernetes production overlay is not a production deployment configuration yet. The supported ready-to-run Kubernetes path is the local `dev` overlay.
+The Kustomize production overlay is retained for reference. The supported Kubernetes deployment path is the Helm chart, with local defaults in `values.yaml` and production guidance in `values-production.example.yaml`.
+
+## Option 3: Kubernetes with Helm
+
+Helm is the deployment path for Kubernetes environments, including production. Docker Compose remains the local development path. The chart deploys PostgreSQL, Keycloak, the Keycloak bootstrap job, all application services, and ingress:
+
+### Local Helm Run
+
+Create a fresh Kind cluster and deploy the complete application with Helm:
+
+```bash
+FORCE=true ./start-dev-helm-cluster.sh
+```
+
+The script creates the cluster, installs ingress-nginx, generates local TLS certificates, builds and loads application images, and runs `helm upgrade --install`.
+
+For later chart or values changes, redeploy without rebuilding the cluster or images:
+
+```bash
+./deploy-helm.sh
+```
+
+For example, after changing `replicaCount` in `helm/sstore/values.yaml`:
+
+```bash
+./deploy-helm.sh
+kubectl get deployments -n dev
+kubectl get pods -n dev
+```
+
+Useful Helm commands:
+
+```bash
+helm list -n dev
+helm status sstore -n dev
+helm get values sstore -n dev
+helm get manifest sstore -n dev
+helm history sstore -n dev
+helm rollback sstore <revision> -n dev
+helm uninstall sstore -n dev
+```
+
+Preview changes before applying them:
+
+```bash
+helm lint ./helm/sstore
+helm template sstore ./helm/sstore --namespace dev
+helm upgrade sstore ./helm/sstore --namespace dev --dry-run=server --debug
+```
+
+Deploy the chart to an existing production cluster with a private values file:
+
+```bash
+helm upgrade --install sstore ./helm/sstore \
+	--namespace prod --create-namespace \
+	-f helm/sstore/values-production.yaml
+```
+
+Keep production overrides outside the repository or in a private values file. At minimum, set the application image names/tags, ingress hosts and TLS secret, PostgreSQL and Keycloak credentials, and `services.order-service.stripeSecretKey`. Validate without applying:
+
+Start from the included [values-production.example.yaml](helm/sstore/values-production.example.yaml), but keep the populated copy private.
+
+```bash
+helm lint ./helm/sstore
+helm template sstore ./helm/sstore --namespace prod -f helm/sstore/values-production.yaml
+```

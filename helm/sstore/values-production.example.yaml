@@ -1,0 +1,31 @@
+# Copy this file to a private values-production.yaml and replace every placeholder.
+replicaCount: 2
+
+postgres:
+  username: replace-me
+  password: replace-me
+  storage: 20Gi
+
+keycloak:
+  adminUsername: replace-me
+  adminPassword: replace-me
+  hostname: auth.example.com
+
+hosts:
+  frontend: shop.example.com
+  api: api.example.com
+  keycloak: auth.example.com
+
+ingress:
+  tlsSecretName: sstore-production-tls
+
+services:
+  product-service:
+    image: registry.example.com/sstore/product-service:1.0.0
+  order-service:
+    image: registry.example.com/sstore/order-service:1.0.0
+    stripeSecretKey: replace-me
+  api-gateway:
+    image: registry.example.com/sstore/api-gateway:1.0.0
+  frontend:
+    image: registry.example.com/sstore/frontend:1.0.0

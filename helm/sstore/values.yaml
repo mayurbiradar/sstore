@@ -1,0 +1,77 @@
+replicaCount: 1
+
+imagePullSecrets: []
+
+postgres:
+  image: postgres:16-alpine
+  storage: 5Gi
+  username: admin
+  password: admin
+  defaultDatabase: default_db
+  databases:
+    - auth_db
+    - order_db
+    - product_db
+
+keycloak:
+  image: quay.io/keycloak/keycloak:26.3
+  adminUsername: admin
+  adminPassword: admin
+  hostname: auth.sstore.local
+  realm: sstore
+  clientId: sstore-frontend
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+services:
+  product-service:
+    image: sstore/product-service:dev
+    port: 8082
+    database: product_db
+    resources:
+      requests: {cpu: 250m, memory: 512Mi}
+      limits: {cpu: "1", memory: 1Gi}
+  order-service:
+    image: sstore/order-service:dev
+    port: 8083
+    database: order_db
+    stripeSecretKey: ""
+    stripeSuccessUrl: https://app.sstore.local/order-success
+    stripeCancelUrl: https://app.sstore.local/checkout
+    resources:
+      requests: {cpu: 250m, memory: 512Mi}
+      limits: {cpu: "1", memory: 1Gi}
+  api-gateway:
+    image: sstore/api-gateway:dev
+    port: 9090
+    resources:
+      requests: {cpu: 250m, memory: 512Mi}
+      limits: {cpu: "1", memory: 1Gi}
+  frontend:
+    image: sstore/frontend:dev
+    port: 80
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+
+hosts:
+  frontend: app.sstore.local
+  api: api.sstore.local
+  keycloak: auth.sstore.local
+ingress:
+  enabled: true
+  className: nginx
+  tlsSecretName: sstore-tls
+
+bootstrap:
+  enabled: true
+  image: curlimages/curl:8.10.1
+
+persistence:
+  enabled: true
+
+postgresql:
+  jdbcHost: postgres
+
+namespaceOverride: ""

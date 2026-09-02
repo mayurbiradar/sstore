@@ -9,6 +9,9 @@
 # Local TLS certificates and keys
 k8s/tls/*
 
+# Private Helm values
+helm/sstore/values-production.yaml
+
 # Frontend dependencies and build output
 node_modules/
 dist/

@@ -111,6 +111,29 @@ kubectl get ingress -n dev
 kubectl get events -n dev --sort-by=.lastTimestamp
 ```
 
+### NetworkPolicy
+
+When NetworkPolicies are enabled, the API gateway, product service, and order service must be allowed to reach Keycloak on TCP port `8080`. Keycloak must allow ingress from those services so they can validate JWTs and access the Keycloak admin API.
+
+Inspect the active policy and verify the Keycloak endpoint:
+
+```bash
+kubectl get networkpolicy keycloak-traffic -n dev -o yaml
+kubectl get endpoints keycloak -n dev
+```
+
+If `/api/users/count` returns `500`, check the API gateway logs for a timeout while fetching Keycloak signing keys:
+
+```bash
+kubectl logs -n dev deploy/api-gateway | grep -E 'JwtException|Connect timed out'
+```
+
+The Helm chart defines these rules in `helm/sstore/templates/networkpolicy.yaml`. Reapply the release after changing them:
+
+```bash
+helm upgrade sstore ./helm/sstore --namespace dev --values ./helm/sstore/values-sealed.yaml --wait
+```
+
 ## Compose and Kubernetes Profiles
 
 The two workflows use the same application image names, service names, ports, database names, and Keycloak realm/client. Their external access URLs differ because Compose publishes ports directly while Kubernetes uses HTTPS ingress.

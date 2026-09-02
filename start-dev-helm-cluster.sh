@@ -9,13 +9,14 @@ APP_URL="https://app.sstore.local"
 API_URL="https://api.sstore.local"
 AUTH_URL="https://auth.sstore.local"
 TLS_DIR="$ROOT_DIR/k8s/tls"
+SEALED_SECRETS_KEY_BACKUP="$TLS_DIR/sealed-secrets-key-backup.yaml"
 
 error() {
     echo "Error: $1" >&2
     exit 1
 }
 
-for command_name in docker kubectl kind helm curl mkcert; do
+for command_name in docker kubectl kind helm curl mkcert kubeseal; do
     command -v "$command_name" >/dev/null 2>&1 \
         || error "$command_name is not installed"
 done
@@ -24,6 +25,13 @@ docker info >/dev/null 2>&1 || error "Docker is not running"
 
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
     if [[ "${FORCE:-false}" == "true" ]]; then
+        existing_key_secret="$(kubectl get secret -n kube-system \
+            -l sealedsecrets.bitnami.com/sealed-secrets-key \
+            -o name 2>/dev/null | head -n 1 || true)"
+        if [[ -n "$existing_key_secret" ]]; then
+            kubectl get "$existing_key_secret" -n kube-system -o yaml > "$SEALED_SECRETS_KEY_BACKUP"
+            chmod 600 "$SEALED_SECRETS_KEY_BACKUP"
+        fi
         kind delete cluster --name "$CLUSTER_NAME"
     else
         error "Kind cluster '$CLUSTER_NAME' already exists. Use FORCE=true to recreate it."
@@ -58,7 +66,27 @@ kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --ti
 
 kubectl apply -f \
     https://github.com/bitnami-labs/sealed-secrets/releases/latest/download/controller.yaml
+
+if [[ -s "$SEALED_SECRETS_KEY_BACKUP" ]]; then
+    kubectl apply -f "$SEALED_SECRETS_KEY_BACKUP"
+fi
 kubectl -n kube-system rollout status deployment/sealed-secrets-controller --timeout=180s
+
+SEALED_VALUES_FILE="$ROOT_DIR/helm/sstore/values-sealed.yaml"
+if [[ ! -s "$SEALED_VALUES_FILE" ]]; then
+    SEALED_CERT_FILE="$(mktemp)"
+    trap 'rm -f "$SEALED_CERT_FILE"' EXIT
+    kubeseal --fetch-cert \
+        --controller-name sealed-secrets-controller \
+        --controller-namespace kube-system > "$SEALED_CERT_FILE"
+    printf '%s\n' \
+        "${POSTGRES_USER:-admin}" \
+        "${POSTGRES_PASSWORD:-admin}" \
+        "${KEYCLOAK_ADMIN:-admin}" \
+        "${KEYCLOAK_ADMIN_PASSWORD:-admin}" \
+        "${STRIPE_SECRET_KEY:-sk_test_dummy}" \
+        | KUBESEAL_BIN=kubeseal CERT_FILE="$SEALED_CERT_FILE" "$ROOT_DIR/seal-helm-values.sh"
+fi
 
 kubectl create namespace "$NAMESPACE"
 kubectl -n "$NAMESPACE" create secret tls sstore-tls \
@@ -87,7 +115,12 @@ for image in \
     kind load docker-image "$image" --name "$CLUSTER_NAME"
 done
 
-SEALED_VALUES_FILE="$ROOT_DIR/helm/sstore/values-sealed.yaml"
+if [[ "${BOOTSTRAP_ONLY:-false}" == "true" ]]; then
+    echo "Cluster, ingress, images, and Sealed Secrets controller are ready."
+    echo "Encrypted helm/sstore/values-sealed.yaml is ready; run ./deploy-helm.sh."
+    exit 0
+fi
+
 [[ -s "$SEALED_VALUES_FILE" ]] \
     || error "sealed values not found at $SEALED_VALUES_FILE; run ./seal-helm-values.sh first"
 

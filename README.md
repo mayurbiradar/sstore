@@ -220,7 +220,20 @@ Create a fresh Kind cluster and deploy the complete application with Helm:
 FORCE=true ./start-dev-helm-cluster.sh
 ```
 
-The script creates the cluster, installs ingress-nginx, generates local TLS certificates, builds and loads application images, and runs `helm upgrade --install`.
+The script creates the cluster, installs ingress-nginx and Sealed Secrets, generates local TLS certificates, builds and loads application images, creates encrypted local-development values when `helm/sstore/values-sealed.yaml` is missing, and runs `helm upgrade --install`. Existing encrypted values are preserved.
+
+#### Fresh Clone Without the Shared Sealed Secrets Key
+
+The encrypted `values-sealed.yaml` file can only be decrypted by the Sealed Secrets private key that encrypted it. For a local-only cluster, initialize the cluster first, generate new encrypted values, and deploy with Helm:
+
+```bash
+BOOTSTRAP_ONLY=true ./start-dev-helm-cluster.sh
+./deploy-helm.sh
+```
+
+The bootstrap script automatically fetches the controller certificate and creates encrypted local-development values using `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`, and `STRIPE_SECRET_KEY` from the environment. If unset, it uses local-only dummy values (`admin` and `sk_test_dummy`). Set those variables before running the script when different values are required.
+
+If using Argo CD, push the newly generated encrypted `helm/sstore/values-sealed.yaml` to the repository before running `./install-argocd.sh`. Never share or commit `k8s/tls/sealed-secrets-key-backup.yaml`; transfer that private backup securely when a developer must use the repository's existing encrypted values.
 
 ### Argo CD GitOps
 
@@ -242,6 +255,8 @@ FORCE=true ./start-dev-helm-cluster.sh
 ```
 
 The `FORCE=true` option deletes and recreates an existing local cluster. Omit it when the cluster does not already exist. The script adds `app.sstore.local`, `api.sstore.local`, `auth.sstore.local`, and `argocd.sstore.local` to `/etc/hosts`.
+
+When recreating the cluster, the Helm bootstrap backs up and restores the Sealed Secrets controller key in `k8s/tls/sealed-secrets-key-backup.yaml`. This local backup is ignored by Git and must be protected; without it, existing encrypted values must be re-encrypted for the new cluster.
 
 The Helm bootstrap installs the free, open-source Sealed Secrets controller in the `kube-system` namespace. The controller decrypts `SealedSecret` resources inside Kubernetes and creates the corresponding Secrets. The private decryption key stays in the cluster; only encrypted values should be committed to Git.
 
@@ -286,7 +301,7 @@ kubeseal --raw \
 	--cert /tmp/sstore-sealed-secrets-cert.pem
 ```
 
-Commit only the encrypted values file, never the plaintext values. Add the file under `spec.source.helm.valueFiles` in [k8s/argocd/application-dev.yaml](k8s/argocd/application-dev.yaml), then push it to Git. Argo CD will render the `SealedSecret` resources and the controller will create the Secrets. The current default `values.yaml` remains suitable for local development until this setup is enabled.
+Commit only the encrypted values file, never the plaintext values. The Argo CD Application already loads it through `spec.source.helm.valueFiles` in [k8s/argocd/application-dev.yaml](k8s/argocd/application-dev.yaml). Argo CD renders the `SealedSecret` resources and the controller creates the Secrets.
 
 #### Install Argo CD
 

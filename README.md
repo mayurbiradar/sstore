@@ -306,6 +306,28 @@ kind load docker-image sstore/frontend:dev --name sstore
 kubectl -n dev rollout restart deployment
 ```
 
+#### Network Policies
+
+NetworkPolicies are enabled for both development and production. They keep the internal services private and allow only the required traffic:
+
+```text
+Ingress -> frontend
+Ingress -> api-gateway -> product-service -> postgres
+					 -> order-service   -> postgres
+Ingress -> keycloak  -> postgres
+```
+
+The frontend, API gateway, and Keycloak accept traffic from the `ingress-nginx` namespace. Product service and order service accept traffic only from the API gateway. PostgreSQL accepts traffic only from product service, order service, and Keycloak. DNS traffic to the cluster DNS pods is also allowed.
+
+The policies are defined in [helm/sstore/templates/networkpolicy.yaml](helm/sstore/templates/networkpolicy.yaml) and configured with `networkPolicy.enabled` and `networkPolicy.ingressNamespace` in the values files. Apply them locally with:
+
+```bash
+./deploy-helm.sh
+kubectl get networkpolicies -n dev
+```
+
+When using a different ingress controller namespace, update `networkPolicy.ingressNamespace`. The Kubernetes network plugin must support NetworkPolicy enforcement; the default Kind networking setup may accept the resources without enforcing them.
+
 #### Troubleshooting
 
 ```bash
@@ -351,7 +373,7 @@ For later chart or values changes, redeploy without rebuilding the cluster or im
 ./deploy-helm.sh
 ```
 
-For example, after changing `replicaCount` in `helm/sstore/values.yaml`:
+For example, after changing a service's `replicas` value in `helm/sstore/values.yaml`:
 
 ```bash
 ./deploy-helm.sh

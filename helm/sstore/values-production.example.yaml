@@ -17,6 +17,10 @@ hosts:
 ingress:
   tlsSecretName: sstore-production-tls
 
+networkPolicy:
+  enabled: true
+  ingressNamespace: ingress-nginx
+
 services:
   product-service:
     image: registry.example.com/sstore/product-service:1.0.0

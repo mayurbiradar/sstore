@@ -73,6 +73,10 @@ bootstrap:
 persistence:
   enabled: true
 
+networkPolicy:
+  enabled: true
+  ingressNamespace: ingress-nginx
+
 postgresql:
   jdbcHost: postgres
 

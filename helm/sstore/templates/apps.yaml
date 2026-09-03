@@ -73,8 +73,20 @@ spec:
         - name: {{ $name }}
           image: {{ $config.image }}
           imagePullPolicy: IfNotPresent
-          {{- if or (eq $name "product-service") (eq $name "order-service") }}
           env:
+            - name: OTEL_SERVICE_NAME
+              value: {{ $name | quote }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ printf "http://otel-collector:%v" $.Values.monitoring.otelCollector.grpcPort | quote }}
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_TRACES_EXPORTER
+              value: otlp
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+            - name: OTEL_LOGS_EXPORTER
+              value: none
+          {{- if or (eq $name "product-service") (eq $name "order-service") }}
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.postgresSecretName }}, key: POSTGRES_USER}}
             - name: SPRING_DATASOURCE_PASSWORD

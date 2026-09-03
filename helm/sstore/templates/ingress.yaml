@@ -8,7 +8,7 @@ metadata:
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   tls:
-    - hosts: [{{ .Values.hosts.frontend }}, {{ .Values.hosts.api }}, {{ .Values.hosts.keycloak }}{{- if .Values.monitoring.enabled }}, {{ .Values.hosts.prometheus }}, {{ .Values.hosts.grafana }}{{- end }}]
+    - hosts: [{{ .Values.hosts.frontend }}, {{ .Values.hosts.api }}, {{ .Values.hosts.keycloak }}{{- if .Values.monitoring.enabled }}, {{ .Values.hosts.prometheus }}, {{ .Values.hosts.grafana }}, {{ .Values.hosts.jaeger }}{{- end }}]
       secretName: {{ .Values.ingress.tlsSecretName }}
   rules:
     - host: {{ .Values.hosts.frontend }}
@@ -62,5 +62,15 @@ spec:
                 name: grafana
                 port:
                   number: {{ .Values.monitoring.grafana.port }}
+    - host: {{ .Values.hosts.jaeger }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jaeger
+                port:
+                  number: {{ .Values.monitoring.jaeger.queryPort }}
 {{- end }}
 {{- end }}

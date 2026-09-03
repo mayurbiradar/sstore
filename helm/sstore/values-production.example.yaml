@@ -11,6 +11,7 @@ hosts:
   keycloak: auth.example.com
   prometheus: prometheus.example.com
   grafana: grafana.example.com
+  jaeger: jaeger.example.com
 
 ingress:
   tlsSecretName: sstore-production-tls

@@ -179,6 +179,9 @@ if [[ ! -f "$TLS_DIR/sstore.local.pem" ||
         app.sstore.local \
         api.sstore.local \
         auth.sstore.local \
+        prometheus.sstore.local \
+        grafana.sstore.local \
+        jaeger.sstore.local \
         argocd.sstore.local \
         "*.sstore.local"
 
@@ -198,6 +201,9 @@ HOSTS_ENTRIES=(
     "127.0.0.1 app.sstore.local"
     "127.0.0.1 api.sstore.local"
     "127.0.0.1 auth.sstore.local"
+    "127.0.0.1 prometheus.sstore.local"
+    "127.0.0.1 grafana.sstore.local"
+    "127.0.0.1 jaeger.sstore.local"
     "127.0.0.1 argocd.sstore.local"
 )
 

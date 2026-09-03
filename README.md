@@ -233,9 +233,68 @@ The Kustomize production overlay is retained for reference. The supported Kubern
 
 ## Option 3: Kubernetes with Helm
 
-Helm is the deployment path for Kubernetes environments, including production. Docker Compose remains the local development path. The chart deploys PostgreSQL, Keycloak, the Keycloak bootstrap job, all application services, Prometheus, Grafana, and ingress:
+Helm is the deployment path for Kubernetes environments, including production. Docker Compose remains the local development path. The chart deploys PostgreSQL, Keycloak, the Keycloak bootstrap job, all application services, Prometheus, Grafana, OpenTelemetry Collector, Jaeger, and ingress:
 
 Monitoring is enabled by default. Prometheus scrapes the API gateway, product service, and order service Actuator metrics, while Grafana is provisioned with Prometheus as its default data source. Open `https://prometheus.sstore.local` or `https://grafana.sstore.local`. The local Grafana login defaults to `admin` / `admin`; change it for shared environments.
+
+### OpenTelemetry and Jaeger
+
+OpenTelemetry (OTel) collects application telemetry using open standards. This deployment uses the OpenTelemetry Java agent for automatic tracing in the API gateway, product service, and order service. The agent can create spans for incoming HTTP requests, outgoing HTTP calls, Spring components, JDBC, and other supported libraries without application code changes.
+
+The trace pipeline is:
+
+```text
+Client -> API Gateway -> Product/Order Service -> PostgreSQL
+						 |
+						 v
+			  OpenTelemetry Java Agent
+						 |
+						 v
+			  OTLP -> OpenTelemetry Collector -> Jaeger
+												   |
+												   v
+									  Jaeger trace search and UI
+```
+
+The OpenTelemetry Collector receives OTLP traces on the internal `otel-collector:4317` gRPC endpoint, batches them, and exports them to Jaeger. Jaeger stores and displays the traces. Prometheus and Grafana remain responsible for metrics; they are complementary rather than replacements for Jaeger.
+
+Open the local Jaeger UI at `https://jaeger.sstore.local`. In Jaeger, choose a service such as `api-gateway`, `product-service`, or `order-service`, select a time range, and click **Find Traces**. Use the application to generate traffic first, such as loading products or placing an order.
+
+For a production installation, set `hosts.jaeger` in your private production values file, point DNS and TLS at that hostname, and keep Jaeger protected behind authentication or a private network. The example uses `jaeger.example.com`.
+
+Tracing is configured by these environment variables in the backend pods:
+
+```text
+OTEL_SERVICE_NAME=api-gateway
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_TRACES_EXPORTER=otlp
+OTEL_METRICS_EXPORTER=none
+OTEL_LOGS_EXPORTER=none
+```
+
+The Java agent is downloaded into each backend image during its Docker build. Rebuild and push all three backend images after changing the service code or Dockerfiles:
+
+```bash
+docker build -t mayurb123/sstore:api-gateway services/api-gateway
+docker build -t mayurb123/sstore:product-service services/product-service
+docker build -t mayurb123/sstore:order-service services/order-service
+docker push mayurb123/sstore:api-gateway
+docker push mayurb123/sstore:product-service
+docker push mayurb123/sstore:order-service
+```
+
+Verify the tracing components and configuration with:
+
+```bash
+kubectl get pods -n dev
+kubectl get svc -n dev otel-collector jaeger
+kubectl exec -n dev deploy/api-gateway -- env | grep '^OTEL_'
+kubectl logs -n dev deploy/otel-collector
+kubectl logs -n dev deploy/jaeger
+```
+
+If Jaeger shows no traces, confirm that the rebuilt images are deployed, check that the backend pods contain the `-javaagent:/opt/opentelemetry-javaagent.jar` startup option, and inspect the Collector logs. NetworkPolicies must allow the backend services to reach the Collector on TCP port `4317`.
 
 In Grafana, the Prometheus data source URL is the internal Kubernetes service URL:
 
@@ -254,6 +313,8 @@ FORCE=true ./start-dev-helm-cluster.sh
 ```
 
 The script creates the cluster, installs ingress-nginx and Sealed Secrets, generates local TLS certificates, builds and loads application images, creates encrypted local-development values when `helm/sstore/values-sealed.yaml` is missing, and runs `helm upgrade --install`. Existing encrypted values are preserved.
+
+The script adds `app.sstore.local`, `api.sstore.local`, `auth.sstore.local`, `prometheus.sstore.local`, `grafana.sstore.local`, `jaeger.sstore.local`, and `argocd.sstore.local` to `/etc/hosts`.
 
 #### Fresh Clone Without the Shared Sealed Secrets Key
 
@@ -287,7 +348,7 @@ The installer expects an existing Kind cluster named `sstore`. Create the cluste
 FORCE=true ./start-dev-helm-cluster.sh
 ```
 
-The `FORCE=true` option deletes and recreates an existing local cluster. Omit it when the cluster does not already exist. The script adds `app.sstore.local`, `api.sstore.local`, `auth.sstore.local`, and `argocd.sstore.local` to `/etc/hosts`.
+The `FORCE=true` option deletes and recreates an existing local cluster. Omit it when the cluster does not already exist. The script adds `app.sstore.local`, `api.sstore.local`, `auth.sstore.local`, `prometheus.sstore.local`, `grafana.sstore.local`, `jaeger.sstore.local`, and `argocd.sstore.local` to `/etc/hosts`.
 
 When recreating the cluster, the Helm bootstrap backs up and restores the Sealed Secrets controller key in `k8s/tls/sealed-secrets-key-backup.yaml`. This local backup is ignored by Git and must be protected; without it, existing encrypted values must be re-encrypted for the new cluster.
 
@@ -340,13 +401,16 @@ kubeseal --raw \
 Commit only the encrypted values file, never the plaintext values. The Argo CD Application already loads it through `spec.source.helm.valueFiles` in [k8s/argocd/application-dev.yaml](k8s/argocd/application-dev.yaml). Argo CD renders the `SealedSecret` resources and the controller creates the Secrets.
 
 The Grafana and Prometheus Services are internal `ClusterIP` Services and are also available through the local TLS ingress. To access them without ingress, use port forwarding:
+The Grafana, Prometheus, and Jaeger Services are internal `ClusterIP` Services and are also available through the local TLS ingress. To access them without ingress, use port forwarding:
 
 ```bash
 kubectl -n dev port-forward svc/grafana 3000:3000
 kubectl -n dev port-forward svc/prometheus 9090:9090
+kubectl -n dev port-forward svc/jaeger 16686:16686
 ```
 
 The monitoring NetworkPolicies allow ingress-nginx to reach both UIs, Grafana to query Prometheus, and Prometheus to scrape the three Spring Boot Actuator endpoints.
+The monitoring NetworkPolicies allow ingress-nginx to reach the monitoring UIs, Grafana to query Prometheus, Prometheus to scrape the three Spring Boot Actuator endpoints, and the backend services to send OTLP traces to the OpenTelemetry Collector.
 
 #### Install Argo CD
 

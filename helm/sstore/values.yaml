@@ -72,6 +72,7 @@ hosts:
   keycloak: auth.sstore.local
   prometheus: prometheus.sstore.local
   grafana: grafana.sstore.local
+  jaeger: jaeger.sstore.local
 ingress:
   enabled: true
   className: nginx
@@ -90,6 +91,20 @@ networkPolicy:
 
 monitoring:
   enabled: true
+  otelCollector:
+    image: otel/opentelemetry-collector-contrib:0.132.0
+    grpcPort: 4317
+    httpPort: 4318
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+  jaeger:
+    image: jaegertracing/all-in-one:1.76.0
+    otlpGrpcPort: 4317
+    queryPort: 16686
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
   prometheus:
     image: prom/prometheus:v3.5.0
     port: 9090

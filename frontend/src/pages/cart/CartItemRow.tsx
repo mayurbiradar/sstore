@@ -42,7 +42,7 @@ export default function CartItemRow({
         to={`/product/${item.id}`}
         className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-28 sm:w-28"
       >
-        <img src={image} alt={item.name} className="h-full w-full object-cover" />
+        <img src={image} alt={item.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
       </Link>
       <div className="min-w-0 flex-1">
         <div className="flex justify-between gap-3">

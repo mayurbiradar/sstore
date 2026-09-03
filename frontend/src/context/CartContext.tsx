@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import * as orderApi from '../api/orderApi'
 
@@ -47,7 +48,12 @@ const CartContext = createContext<CartContextType | undefined>(undefined)
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [orders, setOrders] = useState<Order[]>([])
+  const navigate = useNavigate()
   // Removed orders API call on homepage load
+
+  const goToCart = () => {
+    navigate('/cart')
+  }
 
   const addToCart = (product: Omit<CartItem, 'quantity'>) => {
     let alreadyInCart = false
@@ -64,24 +70,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (alreadyInCart) {
       toast.success(`${product.name} quantity updated`, {
         description: 'Added one more to your cart.',
+        action: { label: 'View cart', onClick: goToCart },
       })
     } else {
       toast.success(`${product.name} added to cart`, {
         description: 'Tap the cart icon to review and checkout.',
+        action: { label: 'View cart', onClick: goToCart },
       })
     }
   }
 
   const removeFromCart = (id: number) => {
-    let removedName: string | undefined
+    let removed: CartItem | undefined
     setCart(prev => {
       const target = prev.find(item => item.id === id)
-      removedName = target?.name
+      removed = target
       return prev.filter(item => item.id !== id)
     })
-    if (removedName) {
-      toast(`${removedName} removed from cart`, {
+    if (removed) {
+      const item = removed
+      toast(`${item.name} removed from cart`, {
         description: 'You can re-add it anytime from the product page.',
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            setCart(prev => {
+              if (prev.some(p => p.id === item.id)) return prev
+              return [...prev, item]
+            })
+          },
+        },
       })
     }
   }

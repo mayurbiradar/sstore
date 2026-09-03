@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Package, ShoppingBag, Pencil } from 'lucide-react'
+import { toast } from 'sonner'
 import { useUser } from '../../context/UserContext'
 import { getMyOrders } from '../../api/orderApi'
 import { updateMyProfile } from '../../api/userApi'
@@ -32,7 +33,9 @@ export default function MyAccount() {
       setUser({ ...user, ...response.data })
       setTab('profile')
     } catch {
-      alert('Failed to update profile')
+      toast.error('Failed to update profile', {
+        description: 'Please try again in a moment.',
+      })
     } finally {
       setBusy(false)
     }

@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingCart, User as UserIcon, Menu, X, LayoutDashboard, Search } from 'lucide-react'
+import { ShoppingCart, User as UserIcon, Menu, X, LayoutDashboard, Search, Heart } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
+import { useWishlist } from '../../context/WishlistContext'
 import { useUser } from '../../context/UserContext'
 import UserMenu from '../auth/UserMenu'
 
@@ -14,6 +15,7 @@ const links = [
 
 export default function Header() {
   const { cart } = useCart()
+  const { count: wishlistCount } = useWishlist()
   const { user } = useUser()
   const navigate = useNavigate()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -54,9 +56,13 @@ export default function Header() {
             {isLoggedIn && <Link to="/orders" className="text-sm font-semibold transition hover:text-rose-600">My orders</Link>}
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            <Link to="/wishlist" className="relative rounded-lg p-2 text-slate-700 transition hover:bg-rose-50 hover:text-rose-600" title="Wishlist">
+              <Heart className="h-5 w-5" strokeWidth={2} />
+              {wishlistCount > 0 && <span key={wishlistCount} className="absolute -right-1 -top-1 flex h-4 min-w-4 animate-[badgePop_220ms_ease-out] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white shadow-sm">{wishlistCount}</span>}
+            </Link>
             <Link to="/cart" className="relative rounded-lg p-2 text-slate-700 transition hover:bg-rose-50 hover:text-rose-600" title="Shopping cart">
               <ShoppingCart className="h-5 w-5" strokeWidth={2} />
-              {cart.length > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">{cart.length}</span>}
+              {cart.length > 0 && <span key={cart.length} className="absolute -right-1 -top-1 flex h-4 min-w-4 animate-[badgePop_220ms_ease-out] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white shadow-sm">{cart.length}</span>}
             </Link>
             {isLoggedIn ? <>
               <Link to="/my-account" className="hidden rounded-lg p-2 text-slate-700 transition hover:bg-rose-50 hover:text-rose-600 sm:block" title="My account">
@@ -90,6 +96,10 @@ export default function Header() {
           </form>
           {links.map(link => <Link key={link.to} to={link.to} onClick={() => setIsMenuOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-semibold hover:bg-rose-50">{link.label}</Link>)}
           {isLoggedIn && <>
+            <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold hover:bg-rose-50">
+              <span>Wishlist</span>
+              {wishlistCount > 0 && <span className="ml-2 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">{wishlistCount}</span>}
+            </Link>
             <Link to="/orders" onClick={() => setIsMenuOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-semibold hover:bg-rose-50">My orders</Link>
             <Link to="/my-account" onClick={() => setIsMenuOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-semibold hover:bg-rose-50">My account</Link>
             {isAdmin && <Link to="/admin" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 hover:bg-rose-100">

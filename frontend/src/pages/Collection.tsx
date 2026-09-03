@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { getProducts } from '../api/productApi';
 import { API_BASE_URL } from '../constants';
 import { useSearchParams } from 'react-router-dom';
-import { Search, LayoutGrid, List, Gem, Star, Check, ShoppingCart } from 'lucide-react';
+import { Search, LayoutGrid, List, Gem, Star, Check, ShoppingCart, Heart } from 'lucide-react';
 import { ProductCardSkeleton, Skeleton } from '../components/Skeleton';
 
 interface Product {
@@ -51,23 +52,27 @@ export default function Collection() {
     setSearchParams(next, { replace: true });
   }, [searchQuery, searchParams, setSearchParams]);
 
+  const loadProducts = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await getProducts();
+      const data = res.data;
+      const productList = Array.isArray(data) ? data : data?.products || [];
+      setProducts(productList);
+      setPriceRange([0, Math.max(10000, ...productList.map((product: Product) => product.price))]);
+      setFilteredProducts(productList);
+    } catch (fetchError) {
+      console.error('Error fetching products:', fetchError);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await getProducts();
-        const data = res.data;
-        const productList = Array.isArray(data) ? data : data?.products || [];
-        setProducts(productList);
-        setPriceRange([0, Math.max(10000, ...productList.map((product: Product) => product.price))]);
-        setFilteredProducts(productList);
-      } catch (error) {
-        console.error('Error fetching products:', error);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
+    loadProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -172,7 +177,7 @@ export default function Collection() {
   }
 
   if (error) {
-    return <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-4 text-center"><div><p className="text-sm font-bold uppercase tracking-wider text-rose-600">Something went wrong</p><h1 className="mt-2 text-3xl font-black text-slate-950">We could not load the catalogue.</h1><p className="mt-3 text-slate-500">Check your connection and try again.</p><button type="button" onClick={() => window.location.reload()} className="mt-6 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white hover:bg-rose-600">Try again</button></div></div>;
+    return <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-4 text-center"><div><p className="text-sm font-bold uppercase tracking-wider text-rose-600">Something went wrong</p><h1 className="mt-2 text-3xl font-black text-slate-950">We could not load the catalogue.</h1><p className="mt-3 text-slate-500">Check your connection and try again.</p><button type="button" onClick={loadProducts} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white hover:bg-rose-600">Try again</button></div></div>;
   }
 
   return (
@@ -350,7 +355,7 @@ export default function Collection() {
                   setSelectedCategory('all');
                   setPriceRange([0, 10000]);
                 }}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:shadow-lg transition"
+                className="rounded-xl bg-slate-950 px-6 py-3 font-bold text-white transition hover:bg-rose-600"
               >
                 Clear All Filters
               </button>
@@ -373,20 +378,46 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdateQuantity }: ProductCardProps) {
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const imageUrl = product.image.startsWith('/images/')
     ? `${API_BASE_URL}${product.image}`
     : product.image;
+  const savedForLater = isInWishlist(product.id);
+
+  const handleToggleWishlist = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleWishlist({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+    });
+  };
 
   if (viewMode === 'list') {
     return (
       <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
         <div className="flex">
-          <div className="flex h-48 w-48 flex-shrink-0 items-center justify-center bg-slate-100">
+          <div className="relative flex h-48 w-48 flex-shrink-0 items-center justify-center bg-slate-100">
             <img
               src={imageUrl}
               alt={product.name}
               className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
             />
+            <button
+              type="button"
+              onClick={handleToggleWishlist}
+              aria-pressed={savedForLater}
+              aria-label={savedForLater ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+              className={`absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur transition ${
+                savedForLater
+                  ? 'border-rose-500 bg-rose-500/95 text-white shadow'
+                  : 'border-white/40 bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-500'
+              }`}
+            >
+              <Heart className={`h-4 w-4 ${savedForLater ? 'fill-white' : ''}`} strokeWidth={2.25} />
+            </button>
           </div>
           <div className="flex-1 p-6">
             <div className="flex justify-between items-start mb-4">
@@ -475,6 +506,19 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
               <span className="ml-1 text-gray-800 font-semibold text-sm">{product.rating}</span>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={handleToggleWishlist}
+            aria-pressed={savedForLater}
+            aria-label={savedForLater ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+            className={`absolute top-3 left-3 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur transition ${
+              savedForLater
+                ? 'border-rose-500 bg-rose-500/95 text-white shadow'
+                : 'border-white/40 bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-500'
+            }`}
+          >
+            <Heart className={`h-4 w-4 ${savedForLater ? 'fill-white' : ''}`} strokeWidth={2.25} />
+          </button>
         </div>
       </Link>
 

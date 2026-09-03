@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Gem, Star, Check, ShoppingCart, Sparkles, ChevronRight, Home as HomeIcon } from 'lucide-react';
+import { Gem, Star, Check, ShoppingCart, Sparkles, ChevronRight, Home as HomeIcon, Heart, ZoomIn, Loader2, Truck, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { getProduct, getProducts } from '../api/productApi';
 import { API_BASE_URL } from '../constants';
+import ImageZoom from '../components/ImageZoom';
 
 interface Product {
   id: number;
@@ -44,6 +46,7 @@ export default function ProductDetail() {
     { id: 3, user: 'Emma L.', rating: 5, comment: 'Perfect for special occasions. Love the attention to detail.', date: '2024-01-08' }
   ]);
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -88,6 +91,18 @@ export default function ProductDetail() {
 
   };
 
+  const handleToggleWishlist = () => {
+    if (!product) return;
+    toggleWishlist({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+    });
+  };
+
+  const savedForLater = product ? isInWishlist(product.id) : false;
+
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity >= 1 && newQuantity <= product!.stock) {
       setQuantity(newQuantity);
@@ -96,10 +111,10 @@ export default function ProductDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50/30 flex items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#f7f8fa]">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-xl text-gray-600">Loading product details...</p>
+          <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-rose-600" strokeWidth={2} />
+          <p className="text-base font-semibold text-slate-600">Loading product details...</p>
         </div>
       </div>
     );
@@ -107,7 +122,7 @@ export default function ProductDetail() {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50/30 flex items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#f7f8fa]">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-rose-50 text-rose-600">
             <Gem className="h-12 w-12" strokeWidth={1.5} />
@@ -154,15 +169,22 @@ export default function ProductDetail() {
           <div className="grid lg:grid-cols-2 gap-12">
             {/* Product Images */}
             <div className="space-y-4">
-              {/* Main Image */}
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <img
-                  src={productImages[selectedImage]?.startsWith('/images/')
-                    ? `${API_BASE_URL}${productImages[selectedImage]}`
-                    : productImages[selectedImage] || imageUrl}
+              {/* Main Image with hover zoom */}
+              <div className="relative rounded-2xl bg-white shadow-lg overflow-hidden">
+                <ImageZoom
+                  src={
+                    productImages[selectedImage]?.startsWith('/images/')
+                      ? `${API_BASE_URL}${productImages[selectedImage]}`
+                      : productImages[selectedImage] || imageUrl
+                  }
                   alt={product.name}
-                  className="w-full h-96 lg:h-[500px] object-cover"
+                  zoomScale={2.25}
+                  className="h-96 lg:h-[500px]"
                 />
+                <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
+                  <ZoomIn className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  Hover to zoom
+                </div>
               </div>
 
               {/* Thumbnail Images */}
@@ -207,7 +229,7 @@ export default function ProductDetail() {
                     </span>
                   )}
                 </div>
-                <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-6">
+                <p className="text-4xl font-black text-slate-950 mb-6">
                   ₹{product.price.toLocaleString('en-IN')}
                 </p>
               </div>
@@ -261,36 +283,109 @@ export default function ProductDetail() {
                         <button
                           onClick={() => handleQuantityChange(quantity - 1)}
                           disabled={quantity <= 1}
-                          className="w-10 h-10 flex items-center justify-center bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                          className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 font-bold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           −
                         </button>
-                        <span className="w-12 text-center font-bold text-lg">{quantity}</span>
+                        <span className="w-12 text-center text-lg font-bold">{quantity}</span>
                         <button
                           onClick={() => handleQuantityChange(quantity + 1)}
                           disabled={quantity >= product.stock}
-                          className="w-10 h-10 flex items-center justify-center bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                          className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 font-bold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           +
                         </button>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-gray-600">Total</p>
-                      <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                      <p className="text-sm text-slate-500">Total</p>
+                      <p className="text-2xl font-black text-slate-950">
                         ₹{(product.price * quantity).toLocaleString('en-IN')}
                       </p>
                     </div>
                   </div>
 
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-rose-600 py-4 text-lg font-bold text-white transition hover:bg-rose-700"
+                    >
+                      {addedToCart ? <><Check className="h-5 w-5" strokeWidth={3} /> Added to Cart</> : <><ShoppingCart className="h-5 w-5" strokeWidth={2.5} /> Add to Cart</>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleToggleWishlist}
+                      aria-pressed={savedForLater}
+                      aria-label={savedForLater ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+                      title={savedForLater ? 'Remove from wishlist' : 'Save to wishlist'}
+                      className={`flex h-[60px] w-[60px] flex-shrink-0 items-center justify-center rounded-xl border-2 transition-all duration-300 ${
+                        savedForLater
+                          ? 'border-rose-500 bg-rose-50 text-rose-600 hover:bg-rose-100'
+                          : 'border-slate-200 bg-white text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500'
+                      }`}
+                    >
+                      <Heart
+                        className={`h-6 w-6 transition-transform ${savedForLater ? 'scale-110 fill-rose-500 text-rose-500' : ''}`}
+                        strokeWidth={2.25}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Wishlist button when out of stock */}
+              {product.stock === 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6">
                   <button
-                    onClick={handleAddToCart}
-                    className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-lg rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transform hover:scale-105 transition-all duration-300"
+                    type="button"
+                    onClick={handleToggleWishlist}
+                    aria-pressed={savedForLater}
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 py-3 font-bold transition ${
+                      savedForLater
+                        ? 'border-rose-500 bg-rose-50 text-rose-600'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600'
+                    }`}
                   >
-                    {addedToCart ? <><Check className="mr-2 inline h-5 w-5" strokeWidth={3} /> Added to Cart</> : <><ShoppingCart className="mr-2 inline h-5 w-5" strokeWidth={2.5} /> Add to Cart</>}
+                    <Heart
+                      className={`h-5 w-5 ${savedForLater ? 'fill-rose-500 text-rose-500' : ''}`}
+                      strokeWidth={2.25}
+                    />
+                    {savedForLater ? 'Saved to wishlist' : 'Save to wishlist for later'}
                   </button>
                 </div>
               )}
+
+              {/* Trust strip */}
+              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-3 sm:gap-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 sm:h-10 sm:w-10">
+                    <Truck className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900">Free shipping</p>
+                    <p className="truncate text-xs text-slate-500">On orders over ₹999</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 sm:h-10 sm:w-10">
+                    <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900">Secure checkout</p>
+                    <p className="truncate text-xs text-slate-500">Protected every step</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 sm:h-10 sm:w-10">
+                    <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900">Easy returns</p>
+                    <p className="truncate text-xs text-slate-500">7-day return policy</p>
+                  </div>
+                </div>
+              </div>
 
               {/* Care Instructions */}
               {product.careInstructions && (
@@ -314,16 +409,18 @@ export default function ProductDetail() {
             {reviews.map((review) => (
               <div key={review.id} className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-white font-bold">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 font-bold text-rose-700">
                     {review.user.charAt(0)}
                   </div>
                   <div>
                     <p className="font-semibold text-gray-800">{review.user}</p>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       {[...Array(5)].map((_, i) => (
-                        <span key={i} className={`text-sm ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}`}>
-                          ⭐
-                        </span>
+                        <Star
+                          key={i}
+                          className={`h-3.5 w-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`}
+                          strokeWidth={1.5}
+                        />
                       ))}
                     </div>
                   </div>
@@ -346,22 +443,23 @@ export default function ProductDetail() {
                 <Link
                   key={relatedProduct.id}
                   to={`/product/${relatedProduct.id}`}
-                  className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 overflow-hidden"
+                  className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
                 >
-                  <div className="bg-gradient-to-br from-purple-100 to-pink-100 h-48 flex items-center justify-center overflow-hidden">
+                  <div className="flex h-48 items-center justify-center overflow-hidden bg-slate-100">
                     <img
                       src={relatedProduct.image.startsWith('/images/')
                         ? `${API_BASE_URL}${relatedProduct.image}`
                         : relatedProduct.image}
                       alt={relatedProduct.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
                   <div className="p-4">
-                    <h3 className="font-bold text-gray-800 mb-2 line-clamp-2 group-hover:text-purple-700 transition-colors">
+                    <h3 className="mb-2 line-clamp-2 font-bold text-slate-800 transition-colors group-hover:text-rose-600">
                       {relatedProduct.name}
                     </h3>
-                    <p className="text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    <p className="text-lg font-black text-slate-950">
                       ₹{relatedProduct.price.toLocaleString('en-IN')}
                     </p>
                   </div>

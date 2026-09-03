@@ -51,6 +51,7 @@ interface Order {
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { Plus, X } from 'lucide-react';
+import { toast } from 'sonner';
 import * as productApi from '../../api/productApi';
 import * as userApi from '../../api/userApi';
 import * as orderApi from '../../api/orderApi';
@@ -140,7 +141,9 @@ export default function AdminDashboard() {
           .catch(() => setProducts([]));
       }
     } catch {
-      alert('Product creation failed');
+      toast.error('Product creation failed', {
+        description: 'Please review the form and try again.',
+      });
     }
     setUploading(false);
   };
@@ -527,11 +530,12 @@ export default function AdminDashboard() {
                                         userApi.getUsers(token)
                                           .then(res => setUsers(res.data))
                                           .catch(() => setUsers([]));
-                                        setEditingUserId(null);
-                                        setEditUserData({});
                                       } catch {
-                                        alert('Failed to update user');
+                                        toast.error('Failed to update user', {
+                                          description: 'Please try again in a moment.',
+                                        });
                                       }
+                                        setEditingUserId(null);
                                       setSavingUserId(null);
                                     }}
                                   >
@@ -574,7 +578,9 @@ export default function AdminDashboard() {
                                       userApi.deleteUser(user.id, token)
                                         .then(() => userApi.getUsers(token))
                                         .then(res => setUsers(res.data))
-                                        .catch(() => alert('Failed to delete user'));
+                                        .catch(() => toast.error('Failed to delete user', {
+                                          description: 'Please try again in a moment.',
+                                        }));
                                     }}
                                   >
                                     Delete

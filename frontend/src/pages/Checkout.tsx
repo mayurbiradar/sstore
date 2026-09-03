@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, Lock } from 'lucide-react'
+import { ShoppingCart, Lock, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCart } from '../context/CartContext'
 import type { CartItem } from '../context/CartContext'
@@ -466,7 +466,7 @@ export default function Checkout() {
                   >
                     {checkoutStep === 1 ? 'Continue to payment →' : loading ? (
                       <>
-                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2.5} />
                         Processing Order...
                       </>
                     ) : (
@@ -500,6 +500,8 @@ export default function Checkout() {
                         <img
                           src={item.image?.startsWith('/images/') ? `${API_BASE_URL}${item.image}` : item.image}
                           alt={item.name}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover"
                         />
                       </div>

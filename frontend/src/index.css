@@ -34,3 +34,10 @@ button, a, input, select { -webkit-tap-highlight-color: transparent; }
 .delay-500 {
   animation-delay: 0.5s;
 }
+
+/* Cart / wishlist count badge pop */
+@keyframes badgePop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}

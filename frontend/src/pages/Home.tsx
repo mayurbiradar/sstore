@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ShieldCheck, RotateCcw, Headphones, Star, Check, ShoppingCart } from 'lucide-react'
+import { ShieldCheck, RotateCcw, Headphones, Star, Check, ShoppingCart, Heart } from 'lucide-react'
 import { getProducts } from '../api/productApi'
 import { API_BASE_URL } from '../constants'
 import { useCart } from '../context/CartContext'
+import { useWishlist } from '../context/WishlistContext'
 
 interface Product {
   id: number
@@ -68,5 +69,12 @@ export default function Home() {
 
 function ProductCard({ product, added, onAdd }: { product: Product; added: boolean; onAdd: () => void }) {
   const imageUrl = product.image?.startsWith('/images/') ? `${API_BASE_URL}${product.image}` : product.image
-  return <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-lg"><Link to={`/product/${product.id}`} className="block"><div className="relative aspect-square overflow-hidden bg-slate-100"><img src={imageUrl} alt={product.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />{product.category && <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">{product.category}</span>}</div></Link><div className="p-4"><Link to={`/product/${product.id}`}><h3 className="line-clamp-2 min-h-12 font-bold text-slate-800 transition group-hover:text-rose-600">{product.name}</h3></Link><div className="mt-3 flex items-center justify-between gap-2"><span className="font-black text-slate-950">₹{product.price.toLocaleString('en-IN')}</span><span className="inline-flex items-center gap-1 text-xs text-amber-600"><Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" strokeWidth={1.5} /> {product.rating || 'New'}</span></div><button type="button" onClick={onAdd} disabled={product.stock === 0} className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${added ? 'bg-emerald-600' : 'bg-slate-950 hover:bg-rose-600'}`}>{product.stock === 0 ? 'Out of stock' : added ? <><Check className="h-4 w-4" strokeWidth={3} /> Added to cart</> : <><ShoppingCart className="h-4 w-4" strokeWidth={2.5} /> Add to cart</>}</button></div></article>
+  const { isInWishlist, toggleWishlist } = useWishlist()
+  const savedForLater = isInWishlist(product.id)
+  const handleToggleWishlist = (event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    toggleWishlist({ id: product.id, name: product.name, price: product.price, image: product.image })
+  }
+  return <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-lg"><Link to={`/product/${product.id}`} className="block"><div className="relative aspect-square overflow-hidden bg-slate-100"><img src={imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />{product.category && <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">{product.category}</span>}{product.stock === 0 && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-600 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow">Out of stock</span>}<button type="button" onClick={handleToggleWishlist} aria-pressed={savedForLater} aria-label={savedForLater ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`} className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur transition ${savedForLater ? 'border-rose-500 bg-rose-500/95 text-white shadow' : 'border-white/40 bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-500'}`}><Heart className={`h-4 w-4 ${savedForLater ? 'fill-white' : ''}`} strokeWidth={2.25} /></button></div></Link><div className="p-4"><Link to={`/product/${product.id}`}><h3 className="line-clamp-2 min-h-12 font-bold text-slate-800 transition group-hover:text-rose-600">{product.name}</h3></Link><div className="mt-3 flex items-center justify-between gap-2"><span className="font-black text-slate-950">₹{product.price.toLocaleString('en-IN')}</span><span className="inline-flex items-center gap-1 text-xs text-amber-600"><Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" strokeWidth={1.5} /> {product.rating || 'New'}</span></div><button type="button" onClick={onAdd} disabled={product.stock === 0} className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${added ? 'bg-emerald-600' : 'bg-slate-950 hover:bg-rose-600'}`}>{product.stock === 0 ? 'Out of stock' : added ? <><Check className="h-4 w-4" strokeWidth={3} /> Added to cart</> : <><ShoppingCart className="h-4 w-4" strokeWidth={2.5} /> Add to cart</>}</button></div></article>
 }

@@ -1,3 +1,5 @@
+import { Sparkles } from 'lucide-react'
+
 interface OrderSummaryProps {
   subtotal: number
   tax: number
@@ -29,6 +31,9 @@ export default function OrderSummary({
   return (
     <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
       <h2 className="text-xl font-black text-slate-950">Order summary</h2>
+
+      {/* Free-shipping progress */}
+      <FreeShippingProgress subtotal={subtotal} />
 
       <div className="mt-5 flex gap-2">
         <input
@@ -92,6 +97,36 @@ function SummaryRow({
     <div className="flex justify-between text-slate-500">
       <span>{label}</span>
       <span className={valueClassName}>{value}</span>
+    </div>
+  )
+}
+
+const FREE_SHIPPING_THRESHOLD = 999
+
+function FreeShippingProgress({ subtotal }: { subtotal: number }) {
+  if (subtotal >= FREE_SHIPPING_THRESHOLD) {
+    return (
+      <div className="mt-5 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
+        <Sparkles className="h-4 w-4 flex-shrink-0" strokeWidth={2.25} />
+        <span className="font-semibold">You unlocked free shipping.</span>
+      </div>
+    )
+  }
+  const remaining = FREE_SHIPPING_THRESHOLD - subtotal
+  const progress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100)
+  return (
+    <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm">
+      <div className="flex items-center justify-between text-slate-600">
+        <span className="font-semibold">Add ₹{remaining.toLocaleString('en-IN')} more</span>
+        <span className="text-xs text-slate-500">for free shipping</span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+        <div
+          className="h-full rounded-full bg-rose-500 transition-all duration-500"
+          style={{ width: `${progress}%` }}
+          aria-hidden
+        />
+      </div>
     </div>
   )
 }

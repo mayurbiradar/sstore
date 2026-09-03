@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getMyOrders } from '../api/orderApi'
-import { API_BASE_URL } from '../constants'
+import { Heart, Check } from 'lucide-react'
+import { getMyOrders } from '../../api/orderApi'
+import { API_BASE_URL } from '../../constants'
+import { OrderCardSkeleton, Skeleton, StatTileSkeleton } from '../../components/Skeleton'
 
 type OrderItem = {
   id?: string
@@ -103,9 +105,28 @@ export default function Orders() {
           </div>
         </>}
 
-        {loading && <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm" role="status">Loading your orders...</div>}
+        {loading && (
+          <div role="status" aria-live="polite" aria-busy="true" className="space-y-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <StatTileSkeleton />
+              <StatTileSkeleton />
+              <StatTileSkeleton />
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Skeleton className="h-10 flex-1 rounded-lg" />
+                <Skeleton className="h-10 w-full rounded-lg sm:w-44" />
+              </div>
+            </div>
+            <div className="space-y-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <OrderCardSkeleton key={index} />
+              ))}
+            </div>
+          </div>
+        )}
         {!loading && error && <div className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center shadow-sm"><p className="font-bold text-red-800">We couldn’t load your orders.</p><p className="mt-2 text-sm text-red-700">Check your connection and try again.</p><button type="button" onClick={loadOrders} className="mt-5 rounded-lg bg-red-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-800">Try again</button></div>}
-        {!loading && !error && orders.length === 0 && <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-2xl">♡</div><h2 className="mt-5 text-xl font-black text-slate-950">No orders yet</h2><p className="mt-2 text-sm text-slate-500">Your next great find is waiting in the collection.</p><Link to="/collection" className="mt-5 inline-block rounded-xl bg-rose-600 px-5 py-3 text-sm font-bold text-white hover:bg-rose-700">Start shopping</Link></div>}
+        {!loading && !error && orders.length === 0 && <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600"><Heart className="h-7 w-7" strokeWidth={2} /></div><h2 className="mt-5 text-xl font-black text-slate-950">No orders yet</h2><p className="mt-2 text-sm text-slate-500">Your next great find is waiting in the collection.</p><Link to="/collection" className="mt-5 inline-block rounded-xl bg-rose-600 px-5 py-3 text-sm font-bold text-white hover:bg-rose-700">Start shopping</Link></div>}
         {!loading && !error && orders.length > 0 && filteredOrders.length === 0 && <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm"><h2 className="font-black text-slate-950">No matching orders</h2><p className="mt-2 text-sm text-slate-500">Try another order number, product name, or status.</p><button type="button" onClick={() => { setSearch(''); setStatusFilter('All') }} className="mt-4 text-sm font-bold text-rose-600 hover:text-rose-700">Clear filters</button></div>}
         {!loading && !error && filteredOrders.length > 0 && <>
           <div className="space-y-4">{visibleOrders.map(order => <OrderCard key={order.id} order={order} />)}</div>
@@ -134,7 +155,7 @@ function OrderCard({ order }: { order: Order }) {
     </div>
     <div className="px-5 py-5 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${currentStep === -1 ? 'bg-red-500' : 'bg-emerald-500'}`} /><p className="font-black capitalize text-slate-950">{(order.status || 'processing').toLowerCase()}</p><span className="text-sm text-slate-500">· {itemCount} item{itemCount === 1 ? '' : 's'}</span></div><span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${statusStyle(order.status || 'processing')}`}>{(order.status || 'processing').toLowerCase()}</span></div>
-      {currentStep >= 0 && <div className="mt-6 grid grid-cols-4 gap-1">{steps.map((step, index) => <div key={step} className="relative text-center"><div className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${index <= currentStep ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{index < currentStep ? '✓' : index + 1}</div><p className={`mt-2 text-[11px] font-semibold sm:text-xs ${index <= currentStep ? 'text-slate-700' : 'text-slate-400'}`}>{step}</p>{index < steps.length - 1 && <span className={`absolute left-1/2 top-3.5 -z-0 h-0.5 w-full ${index < currentStep ? 'bg-rose-600' : 'bg-slate-200'}`} />}</div>)}</div>}
+      {currentStep >= 0 && <div className="mt-6 grid grid-cols-4 gap-1">{steps.map((step, index) => <div key={step} className="relative text-center"><div className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${index <= currentStep ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{index < currentStep ? <Check className="h-4 w-4" strokeWidth={3} /> : index + 1}</div><p className={`mt-2 text-[11px] font-semibold sm:text-xs ${index <= currentStep ? 'text-slate-700' : 'text-slate-400'}`}>{step}</p>{index < steps.length - 1 && <span className={`absolute left-1/2 top-3.5 -z-0 h-0.5 w-full ${index < currentStep ? 'bg-rose-600' : 'bg-slate-200'}`} />}</div>)}</div>}
       {currentStep === -1 && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">This order has been cancelled.</p>}
       <div className="mt-5 divide-y divide-slate-100 border-t border-slate-100">
         {order.items?.map(item => <div key={item.id || item.productId} className="flex items-center gap-4 py-4 last:pb-0"><div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100">{imageUrl(item.image) ? <img src={imageUrl(item.image) || undefined} alt={item.productName} className="h-full w-full object-cover" onError={event => { event.currentTarget.style.display = 'none' }} /> : <span className="text-center text-[11px] font-bold text-slate-400">No image</span>}</div><div className="min-w-0 flex-1"><p className="line-clamp-2 text-sm font-bold text-slate-900 sm:text-base">{item.productName}</p><p className="mt-1 text-sm text-slate-500">Quantity: {item.quantity}</p></div><p className="text-sm font-black text-slate-950">₹{(item.subtotal || 0).toLocaleString('en-IN')}</p></div>)}

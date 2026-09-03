@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { useUser } from '../context/UserContext'
+import { useUser } from '../../context/UserContext'
 import { Navigate } from 'react-router-dom';
-import { isKeycloakConfigured } from '../auth/keycloak'
+import { isKeycloakConfigured } from '../../auth/keycloak'
 
 export default function Login() {
   const { user, login, register } = useUser();

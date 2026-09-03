@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import InfoLayout from '../components/InfoLayout'
-import { STORE } from '../constants/store'
+import InfoLayout from '../../components/InfoLayout'
+import { STORE } from '../../constants/store'
 
 export default function About() {
   return <InfoLayout eyebrow="Our approach" title="Shopping should feel simple." intro="SStore brings useful, beautiful products into one considered marketplace, with clear information and support when you need it."><div className="grid gap-8 text-slate-600 md:grid-cols-3"><div><p className="text-3xl font-black text-rose-600">01</p><h2 className="mt-3 text-lg font-bold text-slate-900">Good products</h2><p className="mt-2 text-sm leading-6">We focus on products that earn their place in your home and daily routine.</p></div><div><p className="text-3xl font-black text-rose-600">02</p><h2 className="mt-3 text-lg font-bold text-slate-900">Clear choices</h2><p className="mt-2 text-sm leading-6">Straightforward pricing, useful details, and an easy cart-to-checkout journey.</p></div><div><p className="text-3xl font-black text-rose-600">03</p><h2 className="mt-3 text-lg font-bold text-slate-900">Human support</h2><p className="mt-2 text-sm leading-6">Questions are welcome. Reach us at <a className="font-semibold text-rose-600" href={`mailto:${STORE.email}`}>{STORE.email}</a>.</p></div></div><div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 pt-8"><p className="text-sm text-slate-500">Ready to find your next favourite?</p><Link to="/collection" className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-rose-600">Browse the collection</Link></div></InfoLayout>

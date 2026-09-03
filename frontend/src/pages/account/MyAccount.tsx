@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useUser } from '../context/UserContext'
-import { getMyOrders } from '../api/orderApi'
-import { updateMyProfile } from '../api/userApi'
-import { API_BASE_URL } from '../constants'
+import { Package, ShoppingBag, Pencil } from 'lucide-react'
+import { useUser } from '../../context/UserContext'
+import { getMyOrders } from '../../api/orderApi'
+import { updateMyProfile } from '../../api/userApi'
+import { API_BASE_URL } from '../../constants'
 
 type Tab = 'profile' | 'edit' | 'addresses' | 'orders'
 type Address = { id: string; firstName: string; lastName: string; address: string; city: string; state: string; pincode: string; phone: string; email?: string }
@@ -45,9 +46,21 @@ function Overview({ user, onEdit }: { user: any; onEdit: () => void }) {
   return <div>
     <SectionHeading title={`Hello, ${user.firstName || 'there'}`} description="Manage your account and keep track of your SStore activity." />
     <div className="mb-8 grid gap-3 sm:grid-cols-3">
-      <Link to="/orders" className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-rose-300 hover:bg-rose-50"><span className="text-xl">📦</span><span className="mt-2 block font-bold text-slate-900">My orders</span><span className="text-xs text-slate-500">Track purchases</span></Link>
-      <Link to="/collection" className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-rose-300 hover:bg-rose-50"><span className="text-xl">🛍️</span><span className="mt-2 block font-bold text-slate-900">Shop products</span><span className="text-xs text-slate-500">Find something new</span></Link>
-      <button type="button" onClick={onEdit} className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-rose-300 hover:bg-rose-50"><span className="text-xl">✎</span><span className="mt-2 block font-bold text-slate-900">Edit details</span><span className="text-xs text-slate-500">Update your profile</span></button>
+      <Link to="/orders" className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-rose-300 hover:bg-rose-50">
+        <Package className="h-6 w-6 text-rose-600" strokeWidth={2} />
+        <span className="mt-2 block font-bold text-slate-900">My orders</span>
+        <span className="text-xs text-slate-500">Track purchases</span>
+      </Link>
+      <Link to="/collection" className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-rose-300 hover:bg-rose-50">
+        <ShoppingBag className="h-6 w-6 text-rose-600" strokeWidth={2} />
+        <span className="mt-2 block font-bold text-slate-900">Shop products</span>
+        <span className="text-xs text-slate-500">Find something new</span>
+      </Link>
+      <button type="button" onClick={onEdit} className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-rose-300 hover:bg-rose-50">
+        <Pencil className="h-6 w-6 text-rose-600" strokeWidth={2} />
+        <span className="mt-2 block font-bold text-slate-900">Edit details</span>
+        <span className="text-xs text-slate-500">Update your profile</span>
+      </button>
     </div>
     <div className="grid gap-4 sm:grid-cols-2"><Info label="Name" value={`${user.firstName || ''} ${user.lastName || ''}`} /><Info label="Email" value={user.email} /><Info label="Phone" value={user.phone || 'Not added'} /><Info label="Status" value="Active" /></div>
   </div>

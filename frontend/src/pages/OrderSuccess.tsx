@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation, Link, useNavigate } from 'react-router-dom'
+import { Check } from 'lucide-react'
 import { API_BASE_URL } from '../constants'
 import { useCart } from '../context/CartContext'
 import { confirmStripePayment } from '../api/orderApi'
@@ -38,7 +39,9 @@ export default function OrderSuccess() {
           <div className="border-t-2 border-rose-600 pt-3 text-xs font-bold text-rose-600 sm:text-sm"><span className="mr-1.5">03</span>Confirmation</div>
         </div>
         <div className="mb-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-2xl font-black text-emerald-700">✓</div>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <Check className="h-8 w-8" strokeWidth={3} />
+          </div>
           <p className="mt-6 text-sm font-bold uppercase tracking-[0.2em] text-rose-600">Thank you for shopping with us</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{paymentLoading ? 'Confirming payment...' : order ? 'Order confirmed' : 'Payment could not be confirmed'}</h1>
           <p className="mx-auto mt-3 max-w-xl text-slate-500">{paymentLoading ? 'Please wait while we verify your Stripe payment.' : order ? 'Your order is safely on its way to our team. We’ll keep you updated as it moves through delivery.' : 'Please contact support before trying to place this order again.'}</p>

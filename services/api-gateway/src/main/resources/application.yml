@@ -6,7 +6,7 @@ server:
   port: ${SERVER_PORT:9090}
 
 keycloak:
-  url: ${KEYCLOAK_URL:https://auth.sstore.local}
+  url: ${KEYCLOAK_URL:http://localhost:8080}
   realm: ${KEYCLOAK_REALM:sstore}
   admin-username: ${KEYCLOAK_ADMIN:admin}
   admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
@@ -19,8 +19,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:https://auth.sstore.local/realms/sstore}
-          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:https://auth.sstore.local/realms/sstore/protocol/openid-connect/certs}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/sstore}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/sstore/protocol/openid-connect/certs}
 
   cloud:
     gateway:

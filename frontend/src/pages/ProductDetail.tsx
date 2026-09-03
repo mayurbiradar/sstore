@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Gem, Star, Check, ShoppingCart, Sparkles, ChevronRight, Home as HomeIcon } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { getProduct, getProducts } from '../api/productApi';
 import { API_BASE_URL } from '../constants';
@@ -108,12 +109,14 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50/30 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">💎</div>
+          <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+            <Gem className="h-12 w-12" strokeWidth={1.5} />
+          </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Product Not Found</h2>
           <p className="text-gray-600 mb-6">The product you're looking for doesn't exist.</p>
           <Link
             to="/collection"
-            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:shadow-lg transition"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:shadow-lg transition"
           >
             Browse Collection
           </Link>
@@ -134,10 +137,12 @@ export default function ProductDetail() {
       <div className="bg-white/60 backdrop-blur-sm border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <nav className="flex items-center space-x-2 text-sm text-gray-600">
-            <Link to="/" className="hover:text-purple-600 transition">Home</Link>
-            <span>/</span>
+            <Link to="/" className="inline-flex items-center gap-1 hover:text-purple-600 transition">
+              <HomeIcon className="h-3.5 w-3.5" strokeWidth={2} /> Home
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 text-gray-400" strokeWidth={2} />
             <Link to="/collection" className="hover:text-purple-600 transition">Collection</Link>
-            <span>/</span>
+            <ChevronRight className="h-3.5 w-3.5 text-gray-400" strokeWidth={2} />
             <span className="text-gray-800 font-medium">{product.name}</span>
           </nav>
         </div>
@@ -192,7 +197,7 @@ export default function ProductDetail() {
                 </h1>
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex items-center gap-1">
-                    <span className="text-yellow-400 text-xl">⭐</span>
+                    <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
                     <span className="text-xl font-bold text-gray-800">{product.rating}</span>
                     <span className="text-gray-600">({reviews.length} reviews)</span>
                   </div>
@@ -282,7 +287,7 @@ export default function ProductDetail() {
                     onClick={handleAddToCart}
                     className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-lg rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transform hover:scale-105 transition-all duration-300"
                   >
-                    {addedToCart ? '✓ Added to Cart' : '🛒 Add to Cart'}
+                    {addedToCart ? <><Check className="mr-2 inline h-5 w-5" strokeWidth={3} /> Added to Cart</> : <><ShoppingCart className="mr-2 inline h-5 w-5" strokeWidth={2.5} /> Add to Cart</>}
                   </button>
                 </div>
               )}
@@ -291,7 +296,7 @@ export default function ProductDetail() {
               {product.careInstructions && (
                 <div className="bg-amber-50 rounded-2xl p-6 border border-amber-200">
                   <h3 className="text-lg font-bold text-amber-800 mb-3 flex items-center gap-2">
-                    ✨ Care Instructions
+                    <Sparkles className="mr-2 inline h-5 w-5 text-purple-600" strokeWidth={2} /> Care Instructions
                   </h3>
                   <p className="text-amber-700">{product.careInstructions}</p>
                 </div>

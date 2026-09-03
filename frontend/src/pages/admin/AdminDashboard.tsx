@@ -50,11 +50,13 @@ interface Order {
 }
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
-import * as productApi from '../api/productApi';
-import * as userApi from '../api/userApi';
-import * as orderApi from '../api/orderApi';
-import { API_BASE_URL } from '../constants';
-import { checkAdminAndProceed } from '../utils/authUtils';
+import { Plus, X } from 'lucide-react';
+import * as productApi from '../../api/productApi';
+import * as userApi from '../../api/userApi';
+import * as orderApi from '../../api/orderApi';
+import { API_BASE_URL } from '../../constants';
+import { checkAdminAndProceed } from '../../utils/authUtils';
+import { ProductCardSkeleton, StatTileSkeleton, Skeleton, OrderCardSkeleton } from '../../components/Skeleton';
 
 export default function AdminDashboard() {
       const [totalRevenue, setTotalRevenue] = useState<number>(0);
@@ -78,6 +80,7 @@ export default function AdminDashboard() {
       const ordersPerPage = 10;
       const [orderSearch, setOrderSearch] = useState('');
       const [orderStatus, setOrderStatus] = useState('All');
+      const [tabLoading, setTabLoading] = useState(true);
   useEffect(() => {
     checkAdminAndProceed(
       () => {
@@ -85,20 +88,25 @@ export default function AdminDashboard() {
         if (activeTab === 'users') {
           userApi.getUsers(token)
             .then(res => setUsers(res.data))
-            .catch(() => setUsers([]));
+            .catch(() => setUsers([]))
+            .finally(() => setTabLoading(false));
         } else if (activeTab === 'products') {
           productApi.getProducts()
             .then(res => setProducts(res.data))
-            .catch(() => setProducts([]));
+            .catch(() => setProducts([]))
+            .finally(() => setTabLoading(false));
         } else if (activeTab === 'orders') {
           orderApi.getOrders(token)
             .then(res => setOrders(res.data))
-            .catch(() => setOrders([]));
+            .catch(() => setOrders([]))
+            .finally(() => setTabLoading(false));
         } else if (activeTab === 'dashboard') {
-          userApi.getUserCount(token).then(res => setUserCount(res.data)).catch(() => setUserCount(0));
-          productApi.getProductCount(token).then(res => setProductCount(res.data)).catch(() => setProductCount(0));
-          orderApi.getOrderCount(token).then(res => setOrderCount(res.data)).catch(() => setOrderCount(0));
-          orderApi.getTotalRevenue(token).then(res => setTotalRevenue(res.data)).catch(() => setTotalRevenue(0));
+          Promise.allSettled([
+            userApi.getUserCount(token).then(res => setUserCount(res.data)),
+            productApi.getProductCount(token).then(res => setProductCount(res.data)),
+            orderApi.getOrderCount(token).then(res => setOrderCount(res.data)),
+            orderApi.getTotalRevenue(token).then(res => setTotalRevenue(res.data)),
+          ]).catch(() => {}).finally(() => setTabLoading(false));
         }
       },
       (path: string) => navigate(path)
@@ -227,6 +235,13 @@ export default function AdminDashboard() {
               </div>
               <span className="hidden text-xs font-medium text-slate-500 sm:block">Updated just now</span>
             </div>
+            {tabLoading ? (
+              <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <StatTileSkeleton key={index} />
+                ))}
+              </div>
+            ) : (
             <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div 
               onClick={() => setActiveTab('users')}
@@ -249,13 +264,14 @@ export default function AdminDashboard() {
               <p className="mb-1 text-xs text-slate-500 sm:mb-2 sm:text-sm">Total Orders</p>
               <p className="text-2xl font-bold text-rose-600 sm:text-4xl">{orderCount}</p>
             </div>
-            <div 
+            <div
               className="cursor-pointer rounded border border-slate-200 border-l-4 border-l-amber-500 bg-white p-4 transition hover:border-amber-300 sm:p-5"
             >
               <p className="mb-1 text-xs text-slate-500 sm:mb-2 sm:text-sm">Total Revenue</p>
               <p className="text-2xl font-bold text-amber-600 sm:text-4xl">₹{totalRevenue.toLocaleString('en-IN')}</p>
             </div>
             </div>
+            )}
           </div>
         )}
 
@@ -268,7 +284,7 @@ export default function AdminDashboard() {
                 onClick={() => setShowAddProductForm(!showAddProductForm)}
                 className="rounded bg-rose-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700"
               >
-                {showAddProductForm ? '✕ Cancel' : '+ Add Product'}
+                {showAddProductForm ? <><X className="h-4 w-4" strokeWidth={2.5} /> Cancel</> : <><Plus className="h-4 w-4" strokeWidth={2.5} /> Add Product</>}
               </button>
             </div>
 
@@ -324,7 +340,13 @@ export default function AdminDashboard() {
 
             {/* Products List */}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {products.map(product => (
+              {tabLoading ? (
+                Array.from({ length: 6 }).map((_, index) => <ProductCardSkeleton key={index} view="grid" />)
+              ) : products.length === 0 ? (
+                <div className="col-span-full rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+                  No products yet. Use “Add Product” to create your first listing.
+                </div>
+              ) : products.map(product => (
                 <div 
                   key={product.id} 
                   onClick={() => navigate(`/admin/product/${product.id}`)}
@@ -394,7 +416,17 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map(user => {
+                    {tabLoading ? (
+                      Array.from({ length: 6 }).map((_, index) => (
+                        <tr key={`skel-${index}`} className="border-t border-slate-100">
+                          {Array.from({ length: 7 }).map((_, col) => (
+                            <td key={col} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
+                          ))}
+                        </tr>
+                      ))
+                    ) : users.length === 0 ? (
+                      <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">No users yet.</td></tr>
+                    ) : users.map(user => {
                       const isEditing = editingUserId === user.id;
                       return (
                         <tr key={user.id} className="border-t border-slate-100 transition hover:bg-rose-50">
@@ -566,7 +598,13 @@ export default function AdminDashboard() {
           <div>
             <div className="mb-5"><p className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600">Fulfillment</p><h2 className="mt-1 text-2xl font-black text-slate-950">Orders</h2><p className="mt-1 text-sm text-slate-500">Review recent purchases and manage customer deliveries.</p></div>
             {orders.length > 0 && <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row"><label className="flex-1"><span className="sr-only">Search orders</span><input value={orderSearch} onChange={event => setOrderSearch(event.target.value)} placeholder="Search by order ID, customer name, or email" className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm outline-none placeholder:text-slate-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100" /></label><label><span className="sr-only">Filter orders by status</span><select value={orderStatus} onChange={event => setOrderStatus(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 sm:w-48">{orderStatuses.map(status => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select></label></div></div>}
-            {orders.length === 0 ? (
+            {tabLoading ? (
+              <div className="space-y-4" role="status" aria-live="polite" aria-busy="true">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <OrderCardSkeleton key={index} />
+                ))}
+              </div>
+            ) : orders.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-12 text-center">
                 <p className="text-xl text-gray-600">No orders yet</p>
               </div>

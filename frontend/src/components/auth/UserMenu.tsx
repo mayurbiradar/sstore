@@ -1,5 +1,5 @@
 import LogoutButton from './LogoutButton';
-import { useUser } from '../context/UserContext';
+import { useUser } from '../../context/UserContext';
 
 export default function UserMenu() {
   const { user } = useUser();

@@ -4,6 +4,8 @@ import { useCart } from '../context/CartContext';
 import { getProducts } from '../api/productApi';
 import { API_BASE_URL } from '../constants';
 import { useSearchParams } from 'react-router-dom';
+import { Search, LayoutGrid, List, Gem, Star, Check, ShoppingCart } from 'lucide-react';
+import { ProductCardSkeleton, Skeleton } from '../components/Skeleton';
 
 interface Product {
   id: number;
@@ -35,7 +37,19 @@ export default function Collection() {
   useEffect(() => {
     const category = searchParams.get('category');
     if (category) setSelectedCategory(category);
+    const query = searchParams.get('q');
+    if (query !== null) setSearchQuery(query);
   }, [searchParams]);
+
+  // Keep the URL in sync when the user types in the in-page search box
+  useEffect(() => {
+    const current = searchParams.get('q') ?? '';
+    if (searchQuery === current) return;
+    const next = new URLSearchParams(searchParams);
+    if (searchQuery) next.set('q', searchQuery);
+    else next.delete('q');
+    setSearchParams(next, { replace: true });
+  }, [searchQuery, searchParams, setSearchParams]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -115,10 +129,43 @@ export default function Collection() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa]">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-xl text-gray-600">Loading exquisite pieces...</p>
+      <div className="min-h-screen bg-[#f7f8fa]">
+        {/* Hero skeleton */}
+        <section className="border-b border-slate-200 bg-white py-12 sm:py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <Skeleton className="h-3 w-32" />
+            <Skeleton className="mt-3 h-9 w-72 sm:h-12" />
+            <Skeleton className="mt-4 h-4 w-96 max-w-full" />
+          </div>
+        </section>
+
+        {/* Search + filters skeleton */}
+        <div className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl">
+            <Skeleton className="h-14 w-full rounded-xl" />
+          </div>
+          <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index}>
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="mt-3 h-10 w-full rounded-lg" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Product grid skeleton */}
+        <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+          <div className="mb-4 flex items-center justify-between">
+            <Skeleton className="h-4 w-40" />
+          </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <ProductCardSkeleton key={index} view="grid" />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -154,7 +201,7 @@ export default function Collection() {
                   className="w-full rounded-xl border border-slate-300 bg-white px-6 py-4 pl-12 text-base shadow-sm transition focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-100"
                 />
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                  🔍
+                  <Search className="h-5 w-5" strokeWidth={2} />
                 </div>
               </div>
             </div>
@@ -223,23 +270,25 @@ export default function Collection() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`px-4 py-3 rounded-lg border-2 transition ${
+                    className={`flex items-center gap-2 rounded-lg border-2 px-4 py-3 transition ${
                       viewMode === 'grid'
                         ? 'border-rose-600 bg-rose-600 text-white'
                         : 'border-slate-200 bg-white text-slate-700 hover:border-rose-400'
                     }`}
                   >
-                    ⊞ Grid
+                    <LayoutGrid className="h-4 w-4" strokeWidth={2} />
+                    Grid
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`px-4 py-3 rounded-lg border-2 transition ${
+                    className={`flex items-center gap-2 rounded-lg border-2 px-4 py-3 transition ${
                       viewMode === 'list'
                         ? 'border-rose-600 bg-rose-600 text-white'
                         : 'border-slate-200 bg-white text-slate-700 hover:border-rose-400'
                     }`}
                   >
-                    ☰ List
+                    <List className="h-4 w-4" strokeWidth={2} />
+                    List
                   </button>
                 </div>
               </div>
@@ -285,7 +334,9 @@ export default function Collection() {
             </div>
           ) : (
             <div className="text-center py-16">
-              <div className="text-6xl mb-4">💎</div>
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                <Gem className="h-10 w-10" strokeWidth={1.75} />
+              </div>
               <h3 className="text-2xl font-bold text-gray-800 mb-2">No products found</h3>
               <p className="text-gray-600 mb-6">
                 {searchQuery
@@ -342,7 +393,7 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
               <div>
                 <h3 className="text-xl font-bold text-gray-800 mb-2">{product.name}</h3>
                 <div className="flex items-center mb-2">
-                  <span className="text-yellow-400 text-lg mr-1">⭐</span>
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" strokeWidth={1.5} />
                   <span className="text-gray-700 font-semibold">{product.rating}</span>
                 </div>
                 <p className="text-2xl font-black text-slate-950">
@@ -359,7 +410,10 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
             <div className="flex justify-between items-center">
               <div className="text-sm text-gray-600">
                 {product.stock > 0 ? (
-                  <span className="text-green-600">✓ In Stock ({product.stock})</span>
+                  <span className="inline-flex items-center gap-1.5 text-green-600">
+                    <Check className="h-4 w-4" strokeWidth={2.5} />
+                    In Stock ({product.stock})
+                  </span>
                 ) : (
                   <span className="text-red-600">Out of Stock</span>
                 )}
@@ -384,9 +438,9 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
                 <button
                   onClick={() => onAddToCart(product)}
                   disabled={product.stock === 0 || quantity >= product.stock}
-                  className="rounded-lg bg-rose-600 px-6 py-2 font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-6 py-2 font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {quantity >= product.stock ? 'Stock limit reached' : added ? '✓ Added to cart' : 'Add to Cart'}
+                  {quantity >= product.stock ? 'Stock limit reached' : added ? <><Check className="h-4 w-4" strokeWidth={3} /> Added to cart</> : <><ShoppingCart className="h-4 w-4" strokeWidth={2.5} /> Add to Cart</>}
                 </button>
               )}
             </div>
@@ -417,7 +471,7 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
           )}
           <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1">
             <div className="flex items-center">
-              <span className="text-yellow-400 text-sm">⭐</span>
+              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
               <span className="ml-1 text-gray-800 font-semibold text-sm">{product.rating}</span>
             </div>
           </div>
@@ -466,7 +520,7 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
             disabled={product.stock === 0 || quantity >= product.stock}
             className="w-full rounded-xl bg-rose-600 py-3 font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {quantity >= product.stock ? 'Stock limit reached' : added ? '✓ Added to cart' : 'Add to Cart'}
+            {quantity >= product.stock ? 'Stock limit reached' : added ? <><Check className="mr-2 inline h-4 w-4" strokeWidth={3} /> Added to cart</> : <><ShoppingCart className="mr-2 inline h-4 w-4" strokeWidth={2.5} /> Add to Cart</>}
           </button>
         )}
       </div>

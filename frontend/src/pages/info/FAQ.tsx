@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import InfoLayout from '../components/InfoLayout'
+import InfoLayout from '../../components/InfoLayout'
 
 const questions = [['How do I place an order?', 'Browse the collection, open a product for details, add it to your cart, and continue to secure checkout.'], ['What payment methods are accepted?', 'Available payment methods are shown during checkout. Your payment details are handled by our secure payment provider.'], ['Can I return an order?', 'Contact support within 30 days of delivery. Items should be unused and in their original condition. See our shipping policy for the process.'], ['How do I track my order?', 'Once your order ships, tracking details will be shared using the contact information on your account.'], ['Is my information safe?', 'We use Keycloak for secure account access and only use your information to provide the store experience. Read our privacy policy for details.']]
 

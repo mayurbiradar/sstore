@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import * as orderApi from '../api/orderApi'
 
 export interface CartItem {
@@ -49,8 +50,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Removed orders API call on homepage load
 
   const addToCart = (product: Omit<CartItem, 'quantity'>) => {
+    let alreadyInCart = false
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id)
+      alreadyInCart = Boolean(existing)
       if (existing) {
         return prev.map(item =>
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
@@ -58,22 +61,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { ...product, quantity: 1 }]
     })
+    if (alreadyInCart) {
+      toast.success(`${product.name} quantity updated`, {
+        description: 'Added one more to your cart.',
+      })
+    } else {
+      toast.success(`${product.name} added to cart`, {
+        description: 'Tap the cart icon to review and checkout.',
+      })
+    }
   }
 
   const removeFromCart = (id: number) => {
-    setCart(prev => prev.filter(item => item.id !== id))
+    let removedName: string | undefined
+    setCart(prev => {
+      const target = prev.find(item => item.id === id)
+      removedName = target?.name
+      return prev.filter(item => item.id !== id)
+    })
+    if (removedName) {
+      toast(`${removedName} removed from cart`, {
+        description: 'You can re-add it anytime from the product page.',
+      })
+    }
   }
 
   const updateQuantity = (id: number, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(id)
-    } else {
-      setCart(prev =>
-        prev.map(item =>
-          item.id === id ? { ...item, quantity } : item
-        )
-      )
+      return
     }
+    setCart(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, quantity } : item
+      )
+    )
   }
 
   const clearCart = () => {

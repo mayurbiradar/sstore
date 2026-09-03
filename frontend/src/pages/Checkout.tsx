@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { ShoppingCart, Lock } from 'lucide-react'
+import { toast } from 'sonner'
 import { useCart } from '../context/CartContext'
 import type { CartItem } from '../context/CartContext'
 import { API_BASE_URL } from "../constants";
@@ -120,9 +122,15 @@ export default function Checkout() {
       if (!orderResponse) throw new Error('Order was not created');
       orderCompleted.current = true;
       clearCart();
+      toast.success('Order placed successfully', {
+        description: `Order #${orderResponse.id} confirmed. Redirecting…`,
+      });
       navigate('/order-success', { state: { order: orderResponse } });
     } catch (error) {
       console.error('Order submission error:', error);
+      toast.error('Could not place your order', {
+        description: 'Please review your details and try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -463,7 +471,7 @@ export default function Checkout() {
                       </>
                     ) : (
                       <>
-                        {paymentMethod === 'stripe' ? 'Pay securely' : '🛒 Place Order'} - ₹{total.toLocaleString('en-IN')}
+                        {paymentMethod === 'stripe' ? <><Lock className="h-5 w-5" strokeWidth={2.5} /> Pay securely</> : <><ShoppingCart className="h-5 w-5" strokeWidth={2.5} /> Place Order</>} - ₹{total.toLocaleString('en-IN')}
                       </>
                     )}
                   </button>
@@ -550,7 +558,7 @@ export default function Checkout() {
                 {/* Security Badge */}
                 <div className="mt-4 text-center">
                   <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
-                    <span>🔒</span>
+                    <Lock className="h-3.5 w-3.5" strokeWidth={2} />
                     <span>SSL Secured Checkout</span>
                   </div>
                 </div>

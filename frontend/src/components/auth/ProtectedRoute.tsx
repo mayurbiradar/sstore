@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { keycloak } from '../auth/keycloak';
-import { useUser } from '../context/UserContext';
+import { keycloak } from '../../auth/keycloak';
+import { useUser } from '../../context/UserContext';
 
 export default function ProtectedRoute({ children, requiredRole }: { children: React.ReactElement; requiredRole?: 'ADMIN' }) {
   const location = useLocation();

@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: sstore/frontend:dev
+          image: mayurb123/sstore:frontend
           imagePullPolicy: IfNotPresent
 
           ports:

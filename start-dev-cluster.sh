@@ -16,10 +16,10 @@ NAMESPACE="dev"
 # Images
 # ------------------------------------------------------------
 
-API_GATEWAY_IMAGE="sstore/api-gateway:dev"
-PRODUCT_SERVICE_IMAGE="sstore/product-service:dev"
-ORDER_SERVICE_IMAGE="sstore/order-service:dev"
-FRONTEND_IMAGE="sstore/frontend:dev"
+API_GATEWAY_IMAGE="mayurb123/sstore:api-gateway"
+PRODUCT_SERVICE_IMAGE="mayurb123/sstore:product-service"
+ORDER_SERVICE_IMAGE="mayurb123/sstore:order-service"
+FRONTEND_IMAGE="mayurb123/sstore:frontend"
 
 # ------------------------------------------------------------
 # URLs

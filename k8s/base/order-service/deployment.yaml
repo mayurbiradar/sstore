@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: sstore/order-service:dev
+          image: mayurb123/sstore:order-service
           imagePullPolicy: IfNotPresent
 
           ports:

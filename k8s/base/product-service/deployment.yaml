@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: product-service
-          image: sstore/product-service:dev
+          image: mayurb123/sstore:product-service
           imagePullPolicy: IfNotPresent
 
           ports:

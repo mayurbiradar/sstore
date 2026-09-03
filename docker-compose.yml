@@ -47,7 +47,7 @@ services:
 
   # ---------- API Gateway ----------
   api-gateway:
-    image: sstore/api-gateway:dev
+    image: mayurb123/sstore:api-gateway
     pull_policy: build
     build: ./services/api-gateway
     container_name: api-gateway
@@ -115,7 +115,7 @@ services:
 
   # ---------- Product Service ----------
   product-service:
-    image: sstore/product-service:dev
+    image: mayurb123/sstore:product-service
     pull_policy: build
     build: ./services/product-service
     container_name: product-service
@@ -136,7 +136,7 @@ services:
 
   # ---------- Order Service ----------
   order-service:
-    image: sstore/order-service:dev
+    image: mayurb123/sstore:order-service
     pull_policy: build
     build: ./services/order-service
     container_name: order-service
@@ -160,7 +160,7 @@ services:
 
   # ---------- Front‑end ----------
   frontend:
-    image: sstore/frontend:dev
+    image: mayurb123/sstore:frontend
     pull_policy: build
     build:
       context: ./frontend

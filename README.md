@@ -410,14 +410,14 @@ Code commit -> CI builds and tests -> CI publishes an image -> Git manifest or H
 Helm is not required by Argo CD itself. Argo CD can deploy plain Kubernetes YAML, Kustomize, Jsonnet, or Helm charts. This repository uses Helm as Argo CD's manifest source at `helm/sstore`, so Helm chart and values changes should be committed and pushed to Git for Argo CD to deploy. For local Kind, rebuild and load images when application code changes, or run `./start-dev-helm-cluster.sh` for a complete local rebuild:
 
 ```bash
-docker build -t sstore/api-gateway:dev services/api-gateway
-docker build -t sstore/product-service:dev services/product-service
-docker build -t sstore/order-service:dev services/order-service
-docker build -t sstore/frontend:dev frontend
-kind load docker-image sstore/api-gateway:dev --name sstore
-kind load docker-image sstore/product-service:dev --name sstore
-kind load docker-image sstore/order-service:dev --name sstore
-kind load docker-image sstore/frontend:dev --name sstore
+docker build -t mayurb123/sstore:api-gateway services/api-gateway
+docker build -t mayurb123/sstore:product-service services/product-service
+docker build -t mayurb123/sstore:order-service services/order-service
+docker build -t mayurb123/sstore:frontend frontend
+kind load docker-image mayurb123/sstore:api-gateway --name sstore
+kind load docker-image mayurb123/sstore:product-service --name sstore
+kind load docker-image mayurb123/sstore:order-service --name sstore
+kind load docker-image mayurb123/sstore:frontend --name sstore
 kubectl -n dev rollout restart deployment
 ```
 

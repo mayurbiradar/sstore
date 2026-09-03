@@ -21,15 +21,15 @@ networkPolicy:
 
 services:
   product-service:
-    image: registry.example.com/sstore/product-service:1.0.0
+    image: mayurb123/sstore:product-service
     replicas: 2
   order-service:
-    image: registry.example.com/sstore/order-service:1.0.0
+    image: mayurb123/sstore:order-service
     replicas: 2
     stripeSecretKey: replace-me
   api-gateway:
-    image: registry.example.com/sstore/api-gateway:1.0.0
+    image: mayurb123/sstore:api-gateway
     replicas: 2
   frontend:
-    image: registry.example.com/sstore/frontend:1.0.0
+    image: mayurb123/sstore:frontend
     replicas: 2

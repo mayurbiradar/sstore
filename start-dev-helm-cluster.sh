@@ -97,11 +97,11 @@ kubectl -n "$NAMESPACE" create secret tls sstore-tls \
     --cert="$TLS_DIR/sstore.local.pem" \
     --key="$TLS_DIR/sstore.local-key.pem"
 
-docker build -t sstore/api-gateway:dev "$ROOT_DIR/services/api-gateway"
-docker build -t sstore/product-service:dev "$ROOT_DIR/services/product-service"
-docker build -t sstore/order-service:dev "$ROOT_DIR/services/order-service"
+docker build -t mayurb123/sstore:api-gateway "$ROOT_DIR/services/api-gateway"
+docker build -t mayurb123/sstore:product-service "$ROOT_DIR/services/product-service"
+docker build -t mayurb123/sstore:order-service "$ROOT_DIR/services/order-service"
 docker build \
-    -t sstore/frontend:dev \
+    -t mayurb123/sstore:frontend \
     --build-arg VITE_API_GATEWAY_ENDPOINT="$API_URL" \
     --build-arg VITE_EMAIL="${VITE_EMAIL:-mr.mayurbiradar@gmail.com}" \
     --build-arg VITE_MOBILE="${VITE_MOBILE:-+91 9021901050}" \
@@ -112,10 +112,10 @@ docker build \
     "$ROOT_DIR/frontend"
 
 for image in \
-    sstore/api-gateway:dev \
-    sstore/product-service:dev \
-    sstore/order-service:dev \
-    sstore/frontend:dev; do
+    mayurb123/sstore:api-gateway \
+    mayurb123/sstore:product-service \
+    mayurb123/sstore:order-service \
+    mayurb123/sstore:frontend; do
     kind load docker-image "$image" --name "$CLUSTER_NAME"
 done
 

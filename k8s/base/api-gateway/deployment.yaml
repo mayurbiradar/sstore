@@ -26,7 +26,7 @@ spec:
       containers:
         - name: api-gateway
 
-          image: sstore/api-gateway:dev
+          image: mayurb123/sstore:api-gateway
 
           imagePullPolicy: IfNotPresent
 

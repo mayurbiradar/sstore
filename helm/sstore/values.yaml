@@ -33,7 +33,7 @@ keycloak:
 
 services:
   product-service:
-    image: sstore/product-service:dev
+    image: mayurb123/sstore:product-service
     port: 8082
     replicas: 1
     database: product_db
@@ -41,7 +41,7 @@ services:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}
   order-service:
-    image: sstore/order-service:dev
+    image: mayurb123/sstore:order-service
     port: 8083
     replicas: 1
     database: order_db
@@ -52,14 +52,14 @@ services:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}
   api-gateway:
-    image: sstore/api-gateway:dev
+    image: mayurb123/sstore:api-gateway
     port: 9090
     replicas: 1
     resources:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}
   frontend:
-    image: sstore/frontend:dev
+    image: mayurb123/sstore:frontend
     port: 80
     replicas: 1
     resources:

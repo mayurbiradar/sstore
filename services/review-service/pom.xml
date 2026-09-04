@@ -26,6 +26,18 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <!--
+          Spring Kafka 4's JsonDeserializer still uses Jackson 2 under the
+          hood. Jackson 2 does not register JSR-310 (java.time.*) handlers
+          by default, so any event with an `Instant` field (e.g.
+          OrderDeliveredEvent.occurredAt) fails to deserialize unless we
+          register `JavaTimeModule` explicitly. See
+          KafkaListenerFactoryConfig#errorTolerantJsonDeserializer.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>

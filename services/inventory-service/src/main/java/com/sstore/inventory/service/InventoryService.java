@@ -61,9 +61,16 @@ public class InventoryService {
 
     @Transactional
     public Reservation reserve(UUID orderId, String userId, List<ReservationLine> lines) {
-        // Already reserved? Idempotent.
+        // Idempotency: one reservation per orderId (DB unique key enforces this).
+        // Re-delivery of OrderCreated — whether the prior reservation is ACTIVE,
+        // COMMITTED, EXPIRED, or RELEASED — must short-circuit and not insert a
+        // second row. The unique constraint on reservations.order_id is the source
+        // of truth; this check avoids the duplicate-key error that would otherwise
+        // poison the consumer and cause infinite redelivery.
         var existing = reservationRepository.findByOrderId(orderId);
-        if (existing.isPresent() && existing.get().getStatus().equals(ReservationStatus.ACTIVE.name())) {
+        if (existing.isPresent()) {
+            log.info("Reservation for order {} already exists (status={}) — idempotent skip",
+                    orderId, existing.get().getStatus());
             return existing.get();
         }
 

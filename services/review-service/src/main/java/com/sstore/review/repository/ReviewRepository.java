@@ -36,5 +36,5 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
          WHERE r.productId = :productId
            AND r.status = com.sstore.review.domain.Review.Status.APPROVED
         """)
-    Object[] recomputeAggregate(@Param("productId") UUID productId);
+    List<Object[]> recomputeAggregate(@Param("productId") UUID productId);
 }

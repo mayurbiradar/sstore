@@ -291,9 +291,27 @@ public class ReviewService {
      * so duplicate publishes are safe.
      */
     private void publishAggregateUpdate(UUID productId, String eventType) {
-        Object[] agg = reviewRepository.recomputeAggregate(productId);
-        BigDecimal avg = (BigDecimal) agg[0];
-        Long count = (Long) agg[1];
+        List<Object[]> rows = reviewRepository.recomputeAggregate(productId);
+        BigDecimal avg;
+        Long count;
+        if (rows.isEmpty() || rows.get(0) == null) {
+            avg = BigDecimal.ZERO;
+            count = 0L;
+        } else {
+            Object[] agg = rows.get(0);
+            // Hibernate 7 maps AVG(int) to Double, AVG(BigDecimal) to BigDecimal.
+            // Be tolerant of either so the read-side doesn't break the write-side.
+            Object avgRaw = agg[0];
+            if (avgRaw instanceof BigDecimal bd) {
+                avg = bd;
+            } else if (avgRaw instanceof Number n) {
+                avg = BigDecimal.valueOf(n.doubleValue());
+            } else {
+                avg = BigDecimal.ZERO;
+            }
+            Object countRaw = agg[1];
+            count = (countRaw instanceof Number n) ? n.longValue() : 0L;
+        }
         if (avg == null) avg = BigDecimal.ZERO;
         BigDecimal avgRounded = avg.setScale(2, RoundingMode.HALF_UP);
 

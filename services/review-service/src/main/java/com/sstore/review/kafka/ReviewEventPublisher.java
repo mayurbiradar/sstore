@@ -4,13 +4,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sstore.review.domain.EventOutbox;
 import com.sstore.review.repository.EventOutboxRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+// Spring Boot 4 ships with Jackson 3 (`tools.jackson.*`). The auto-configured
+// `ObjectMapper` bean is `tools.jackson.databind.ObjectMapper`, not the
+// classic `com.fasterxml.jackson.databind.ObjectMapper`.
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Writes events to the transactional outbox in the same DB transaction as the
@@ -38,7 +41,9 @@ public class ReviewEventPublisher {
                 .headers("{}")
                 .build();
             outboxRepository.save(row);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
+            // Jackson 3 replaces `JsonProcessingException` with the unchecked
+            // `JacksonException` base class.
             throw new IllegalStateException("Cannot serialize event " + eventType, e);
         }
     }

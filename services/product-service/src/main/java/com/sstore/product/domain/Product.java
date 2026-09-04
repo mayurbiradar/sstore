@@ -2,30 +2,24 @@ package com.sstore.product.domain;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.Data;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
  * Product aggregate root.
+ *
  * Money is stored as bigint in the smallest currency unit (paise/cents).
+ *
+ * Catalog visibility is governed solely by {@code active} + {@code deletedAt}.
+ * There's no draft lifecycle — admin fills in price/description/stock on the
+ * edit page before flipping {@code active} to true.
  */
 @Entity
 @Table(name = "products")
@@ -48,25 +42,16 @@ public class Product {
     @Column(nullable = false, columnDefinition = "text")
     private String description;
 
-    @Column(name = "short_description", columnDefinition = "text")
-    private String shortDescription;
-
-    private String brand;
-
     @Column(nullable = false)
     private Long price; // paise
-
-    @Column(name = "compare_at_price")
-    private Long compareAtPrice;
 
     @Column(nullable = false)
     private String currency = "INR";
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private Category category;
+    @Column(nullable = false)
+    private boolean taxable = true;
 
-    /** Primary image URL — kept for backward compat with the storefront. */
+    /** Primary image URL — relative ("/images/xxx.jpg"). */
     private String image;
 
     /** Denormalized average rating, kept up-to-date by review-service via Kafka. */
@@ -84,23 +69,11 @@ public class Product {
     @Column(nullable = false)
     private Integer stock = 0;
 
-    @Column(name = "low_stock_threshold", nullable = false)
-    private Integer lowStockThreshold = 5;
-
     @Column(nullable = false)
     private boolean active = true;
 
     @Column(nullable = false)
     private boolean featured = false;
-
-    /** Postgres text[] via Hibernate. */
-    @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(columnDefinition = "text[]")
-    private List<String> tags = new ArrayList<>();
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    private String metadata = "{}";
 
     @Version
     private Long version;
@@ -114,7 +87,6 @@ public class Product {
     @Column(name = "deleted_at")
     private Instant deletedAt; // soft delete
 
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonManagedReference
-    private List<ProductImage> images = new ArrayList<>();
+    @Column(name = "published_at")
+    private Instant publishedAt;
 }

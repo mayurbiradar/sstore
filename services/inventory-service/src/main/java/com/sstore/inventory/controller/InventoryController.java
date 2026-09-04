@@ -117,6 +117,17 @@ public class InventoryController {
         return inventoryService.upsertItem(request.productId(), request.sku(), request.name(), request.onHand());
     }
 
+    /**
+     * Set the on-hand quantity to an exact value (not a top-up). Used by
+     * product-service's edit flow so the admin can set stock = 10 on the
+     * edit page without the inventory row silently retaining whatever it had.
+     */
+    @PutMapping("/admin/items/{productId}/onhand")
+    @PreAuthorize("hasRole('ADMIN')")
+    public InventoryItem setOnHand(@PathVariable UUID productId, @RequestParam int onHand) {
+        return inventoryService.setOnHand(productId, onHand);
+    }
+
     @GetMapping("/admin/items")
     @PreAuthorize("hasRole('ADMIN')")
     public List<InventoryItem> listItems() {

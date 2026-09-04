@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Gem, Check, ShoppingCart, Sparkles, ChevronRight, Home as HomeIcon, Heart, ZoomIn, Loader2, Truck, ShieldCheck, RefreshCw, Send, ShieldCheck as VerifiedBadge, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Gem, Check, ShoppingCart, ChevronRight, Home as HomeIcon, Heart, ZoomIn, Loader2, Truck, ShieldCheck, RefreshCw, Send, ShieldCheck as VerifiedBadge, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useUser } from '../context/UserContext';
-import { getProduct, getProducts } from '../api/productApi';
+import { getProduct, getVisibleProducts } from '../api/productApi';
 import type { Product } from '../api/productApi';
 import {
   listReviewsForProduct,
@@ -50,13 +50,9 @@ export default function ProductDetail() {
         setProduct(productData);
 
         // Fetch related products
-        const allProducts = await getProducts();
+        const allProducts = await getVisibleProducts();
         const related = allProducts
-          .filter((p: Product) =>
-            p.id !== productData.id &&
-            (p.category?.id === productData.category?.id ||
-              p.category?.slug === productData.category?.slug),
-          )
+          .filter((p: Product) => p.id !== productData.id)
           .slice(0, 4);
         setRelatedProducts(related);
       } catch (error) {
@@ -232,7 +228,7 @@ export default function ProductDetail() {
     ? `${API_BASE_URL}${product.image}`
     : product.image;
 
-  const productImages = product.images?.map(i => i.url) ?? (product.image ? [product.image] : []);
+  const productImages = product.image ? [product.image] : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50/30">
@@ -325,11 +321,6 @@ export default function ProductDetail() {
                       </span>
                     )}
                   </div>
-                  {product.category && (
-                    <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-                      {product.category.name}
-                    </span>
-                  )}
                 </div>
                 <p className="text-4xl font-black text-slate-950 mb-6">
                   {formatPrice(product.price)}
@@ -348,12 +339,6 @@ export default function ProductDetail() {
               <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
                 <h3 className="text-lg font-bold text-gray-800 mb-4">Specifications</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {product.brand && (
-                    <div>
-                      <span className="text-gray-600 text-sm">Brand:</span>
-                      <p className="font-semibold text-gray-800">{product.brand}</p>
-                    </div>
-                  )}
                   {product.sku && (
                     <div>
                       <span className="text-gray-600 text-sm">SKU:</span>
@@ -482,16 +467,6 @@ export default function ProductDetail() {
                   </div>
                 </div>
               </div>
-
-              {/* Short description / metadata */}
-              {product.shortDescription && (
-                <div className="bg-amber-50 rounded-2xl p-6 border border-amber-200">
-                  <h3 className="text-lg font-bold text-amber-800 mb-3 flex items-center gap-2">
-                    <Sparkles className="mr-2 inline h-5 w-5 text-purple-600" strokeWidth={2} /> Highlights
-                  </h3>
-                  <p className="text-amber-700">{product.shortDescription}</p>
-                </div>
-              )}
             </div>
           </div>
         </div>

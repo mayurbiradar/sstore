@@ -59,6 +59,26 @@ public class InventoryService {
         return saved;
     }
 
+    /**
+     * Set on-hand to an exact value (not a top-up). Used by product-service
+     * when admin edits a product's stock so the inventory row mirrors the
+     * product row immediately, instead of accumulating on every edit.
+     *
+     * Clamped at 0 to match upsertItem's behaviour. If the item doesn't
+     * exist yet, returns a 404 via the controller's path lookup.
+     */
+    @Transactional
+    public InventoryItem setOnHand(UUID productId, int onHand) {
+        InventoryItem item = itemRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No inventory item for productId=" + productId));
+        item.setOnHand(Math.max(0, onHand));
+        item.setUpdatedAt(Instant.now());
+        InventoryItem saved = itemRepository.save(item);
+        log.info("Set inventory on_hand sku={} on_hand={}", saved.getSku(), saved.getOnHand());
+        return saved;
+    }
+
     @Transactional
     public Reservation reserve(UUID orderId, String userId, List<ReservationLine> lines) {
         // Idempotency: one reservation per orderId (DB unique key enforces this).

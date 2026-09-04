@@ -92,6 +92,37 @@ public class InventoryServiceClient {
         }
     }
 
+    /**
+     * Set on-hand to an exact value (not a top-up). Used by
+     * {@link com.sstore.product.controller.ProductController#update} when
+     * admin changes a product's stock so the inventory row mirrors the
+     * product row. Returns the inventory-service response body, or null on
+     * transient failure (logged, never thrown).
+     */
+    public Map<String, Object> setOnHand(UUID productId, int onHand) {
+        String token = currentToken();
+        if (token.isEmpty()) {
+            log.warn("No JWT in security context — cannot set inventory for productId={}.", productId);
+            return null;
+        }
+        try {
+            RestClient client = restClientBuilder.baseUrl(baseUrl).build();
+            return client.put()
+                    .uri("/api/inventory/admin/items/{productId}/onhand?onHand={onHand}",
+                            productId, onHand)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .retrieve()
+                    .body(Map.class);
+        } catch (RestClientResponseException e) {
+            log.error("Inventory setOnHand failed for productId={} ({}): {}",
+                    productId, e.getStatusCode(), e.getResponseBodyAsString());
+            return null;
+        } catch (Exception e) {
+            log.error("Inventory setOnHand threw for productId={}: {}", productId, e.toString(), e);
+            return null;
+        }
+    }
+
     private String currentToken() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof Jwt jwt) {

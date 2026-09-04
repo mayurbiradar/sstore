@@ -22,7 +22,8 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'users' | 'orders'>('dashboard');
   const [showAddProductForm, setShowAddProductForm] = useState(false);
-  const [newProduct, setNewProduct] = useState<{ name: string; description: string; price: string; image: string; stock: number }>({ name: '', description: '', price: '', image: '', stock: 10 });
+  const [newProductName, setNewProductName] = useState('');
+  const [newProductFiles, setNewProductFiles] = useState<FileList | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,7 +54,7 @@ export default function AdminDashboard() {
         if (activeTab === 'users') {
           userApi.getUsers(token).then(setUsers).catch(() => setUsers([])).finally(() => setTabLoading(false));
         } else if (activeTab === 'products') {
-          productApi.getProducts().then(setProducts).catch(() => setProducts([])).finally(() => setTabLoading(false));
+          productApi.getProductsForAdmin(token).then(setProducts).catch(() => setProducts([])).finally(() => setTabLoading(false));
         } else if (activeTab === 'orders') {
           orderApi.listOrders(token).then(setOrders).catch(() => setOrders([])).finally(() => setTabLoading(false));
         } else if (activeTab === 'dashboard') {
@@ -73,26 +74,30 @@ export default function AdminDashboard() {
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    const files = newProductFiles;
+    if (!files || files.length === 0) {
+      toast.error('Pick at least one image');
+      return;
+    }
     setUploading(true);
     const token = localStorage.getItem('accessToken') || '';
     try {
-      const priceInRupees = parseFloat(newProduct.price as string);
-      const priceInPaise = Number.isFinite(priceInRupees) ? Math.round(priceInRupees * 100) : 0;
       const payload: CreateProductPayload = {
-        name: newProduct.name,
-        description: newProduct.description,
-        price: priceInPaise,
-        stock: newProduct.stock,
-        image: fileInputRef.current?.files?.[0],
+        name: newProductName,
+        // Backend requires name + 1+ image. First image is the primary;
+        // extras are written to disk but not yet tied to a row.
+        image: files[0],
+        images: Array.from(files),
       };
       await productApi.createProductWithImage(payload, token);
-      setNewProduct({ name: '', description: '', price: '', image: '', stock: 10 });
+      setNewProductName('');
+      setNewProductFiles(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       setShowAddProductForm(false);
       if (activeTab === 'products') {
-        productApi.getProducts().then(setProducts).catch(() => setProducts([]));
+        productApi.getProductsForAdmin(token).then(setProducts).catch(() => setProducts([]));
       }
-      toast.success('Product created');
+      toast.success('Draft product created — open it to set price, description and stock.');
     } catch {
       toast.error('Product creation failed');
     } finally {
@@ -213,32 +218,29 @@ export default function AdminDashboard() {
                 {showAddProductForm ? <><X className="h-4 w-4" /> Cancel</> : <><Plus className="h-4 w-4" /> Add Product</>}
               </button>
             </div>
-
             {showAddProductForm && (
               <div className="mb-6 rounded border border-slate-200 bg-white p-5">
                 <form onSubmit={handleAddProduct} className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <input type="text" placeholder="Product Name" value={newProduct.name}
-                      onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
-                      className="rounded-lg border-2 border-slate-200 px-4 py-3 focus:border-rose-500 focus:outline-none" required />
-                    <input type="number" placeholder="Price (₹)" value={newProduct.price}
-                      onChange={e => setNewProduct({ ...newProduct, price: e.target.value })}
-                      className="rounded-lg border-2 border-slate-200 px-4 py-3 focus:border-rose-500 focus:outline-none" required />
-                  </div>
-                  <textarea placeholder="Description" value={newProduct.description}
-                    onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}
+                  <p className="text-sm text-slate-600">
+                    Pick a name and at least one image. The product is saved as a draft — open it to set price,
+                    description, stock, and status.
+                  </p>
+                  <input type="text" placeholder="Product name" value={newProductName}
+                    onChange={e => setNewProductName(e.target.value)}
                     className="w-full rounded-lg border-2 border-slate-200 px-4 py-3 focus:border-rose-500 focus:outline-none"
-                    rows={3} required />
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <input type="number" placeholder="Quantity" value={newProduct.stock}
-                      onChange={e => setNewProduct({ ...newProduct, stock: Number(e.target.value) })}
-                      className="rounded-lg border-2 border-slate-200 px-4 py-3 focus:border-rose-500 focus:outline-none" required />
-                    <input type="file" accept="image/*" ref={fileInputRef}
-                      className="rounded-lg border-2 border-slate-200 px-4 py-3 focus:border-rose-500 focus:outline-none" required />
-                  </div>
+                    required />
+                  <input type="file" accept="image/*" multiple ref={fileInputRef}
+                    onChange={e => setNewProductFiles(e.target.files)}
+                    className="w-full rounded-lg border-2 border-slate-200 px-4 py-3 focus:border-rose-500 focus:outline-none"
+                    required />
+                  {newProductFiles && newProductFiles.length > 0 && (
+                    <p className="text-xs text-slate-500">
+                      {newProductFiles.length} image{newProductFiles.length === 1 ? '' : 's'} selected — first one becomes the primary image.
+                    </p>
+                  )}
                   <button type="submit" disabled={uploading}
                     className="w-full rounded-lg bg-slate-950 py-3 font-bold text-white transition hover:bg-rose-600 hover:shadow-lg disabled:opacity-50">
-                    {uploading ? 'Uploading…' : 'Add Product'}
+                    {uploading ? 'Uploading…' : 'Create draft'}
                   </button>
                 </form>
               </div>
@@ -252,7 +254,7 @@ export default function AdminDashboard() {
                   </div>
                 ) : products.map(product => (
                   <div key={product.id}
-                    onClick={() => navigate(`/admin/product/${product.id}`)}
+                    onClick={() => navigate(`/admin/product/${product.id}/edit`)}
                     className="flex cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-md">
                     <div className="flex items-center justify-center">
                       {product.image ? (
@@ -272,7 +274,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="mt-4 flex gap-2 border-t border-slate-100 pt-4">
                       <button
-                        onClick={e => { e.stopPropagation(); navigate(`/admin/product/${product.id}`); }}
+                        onClick={e => { e.stopPropagation(); navigate(`/admin/product/${product.id}/edit`); }}
                         className="flex-1 rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-600">
                         Edit
                       </button>

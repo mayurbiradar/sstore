@@ -2,7 +2,7 @@ import { useState, useEffect, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { getProducts } from '../api/productApi';
+import { getVisibleProducts } from '../api/productApi';
 import type { Product } from '../api/productApi';
 import { API_BASE_URL } from '../constants';
 import { useSearchParams } from 'react-router-dom';
@@ -15,7 +15,6 @@ export default function Collection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
   const [sortBy, setSortBy] = useState('name');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -25,8 +24,6 @@ export default function Collection() {
 
 
   useEffect(() => {
-    const category = searchParams.get('category');
-    if (category) setSelectedCategory(category);
     const query = searchParams.get('q');
     if (query !== null) setSearchQuery(query);
   }, [searchParams]);
@@ -45,7 +42,7 @@ export default function Collection() {
     setLoading(true);
     setError(false);
     try {
-      const productList = await getProducts();
+      const productList = await getVisibleProducts();
       setProducts(productList);
       const maxPriceInPaise = Math.max(1000000, ...productList.map((p: Product) => p.price));
       setPriceRange([0, Math.ceil(maxPriceInPaise / 100)]);
@@ -74,11 +71,6 @@ export default function Collection() {
       );
     }
 
-    // Category filter
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(product => product.category?.slug === selectedCategory || product.category?.name === selectedCategory);
-    }
-
     // Price filter — selected range is in rupees (₹), backend stores paise.
     filtered = filtered.filter(product =>
       product.price / 100 >= priceRange[0] && product.price / 100 <= priceRange[1]
@@ -100,7 +92,7 @@ export default function Collection() {
     });
 
     setFilteredProducts(filtered);
-  }, [products, searchQuery, selectedCategory, priceRange, sortBy]);
+  }, [products, searchQuery, priceRange, sortBy]);
 
   const handleAddToCart = (product: Product) => {
     if (product.stock === 0 || getProductQuantity(product.id) >= product.stock) return;
@@ -119,12 +111,10 @@ export default function Collection() {
     return cart.find(item => item.id === productId)?.quantity || 0;
   };
 
-  const categories = ['all', ...Array.from(new Set(products.map(p => p.category?.slug || p.category?.name).filter(Boolean) as string[]))];
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f7f8fa]">
-        {/* Hero skeleton */}
+        {/* Hero skeleton *
         <section className="border-b border-slate-200 bg-white py-12 sm:py-16">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <Skeleton className="h-3 w-32" />
@@ -203,28 +193,7 @@ export default function Collection() {
 
           {/* Filters */}
           <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {/* Category Filter */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    const category = e.target.value;
-                    setSelectedCategory(category);
-                    if (category === 'all') setSearchParams({});
-                    else setSearchParams({ category });
-                  }}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 focus:border-rose-500 focus:outline-none"
-                >
-                  {categories.map(category => (
-                    <option key={category} value={category}>
-                      {category === 'all' ? 'All Categories' : category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Price Range */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -341,7 +310,6 @@ export default function Collection() {
               <button
                 onClick={() => {
                   setSearchQuery('');
-                  setSelectedCategory('all');
                   setPriceRange([0, 10000]);
                 }}
                 className="rounded-xl bg-slate-950 px-6 py-3 font-bold text-white transition hover:bg-rose-600"

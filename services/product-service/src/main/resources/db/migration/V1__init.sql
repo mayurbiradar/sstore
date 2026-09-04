@@ -1,5 +1,5 @@
 -- =============================================================================
--- SStore Product Service — consolidated initial schema
+-- SStore Product Service — consolidated schema (v2)
 -- =============================================================================
 -- Source of truth for the product catalog. Owned by product-service.
 -- -----------------------------------------------------------------------------
@@ -19,104 +19,102 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ---------------------------------------------------------------------------
--- Categories
+-- updated_at trigger function
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS categories (
-    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    slug        text NOT NULL UNIQUE,
-    name        text NOT NULL,
-    description text,
-    display_order integer NOT NULL DEFAULT 0,
-    active      boolean NOT NULL DEFAULT true,
-    created_at  timestamptz NOT NULL DEFAULT now(),
-    updated_at  timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_categories_active ON categories(active) WHERE active = true;
-CREATE INDEX IF NOT EXISTS idx_categories_order  ON categories(display_order);
-
--- ---------------------------------------------------------------------------
--- Products
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS products (
-    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    sku             text NOT NULL UNIQUE,
-    slug            text NOT NULL UNIQUE,
-    name            text NOT NULL,
-    description     text,
-    short_description text,
-    brand           text,
-    price           bigint NOT NULL CHECK (price >= 0),
-    compare_at_price bigint CHECK (compare_at_price IS NULL OR compare_at_price >= 0),
-    currency        text NOT NULL DEFAULT 'INR' CHECK (length(currency) = 3),
-    category_id     uuid REFERENCES categories(id) ON DELETE SET NULL,
-    image           text,                       -- primary/cover image URL
-    -- Denormalized aggregates, kept up-to-date by review-service / order-service
-    -- via Kafka. Source of truth lives in review-service.reviews and the order
-    -- DELIVERED lifecycle event.
-    avg_rating      numeric(3, 2) NOT NULL DEFAULT 0 CHECK (avg_rating >= 0 AND avg_rating <= 5),
-    review_count    integer NOT NULL DEFAULT 0 CHECK (review_count >= 0),
-    sold_count      integer NOT NULL DEFAULT 0 CHECK (sold_count >= 0),
-    stock           integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
-    low_stock_threshold integer NOT NULL DEFAULT 5 CHECK (low_stock_threshold >= 0),
-    active          boolean NOT NULL DEFAULT true,
-    featured        boolean NOT NULL DEFAULT false,
-    tags            text[] NOT NULL DEFAULT '{}',
-    metadata        jsonb NOT NULL DEFAULT '{}'::jsonb,
-    version         bigint NOT NULL DEFAULT 0,  -- @Version optimistic lock
-    created_at      timestamptz NOT NULL DEFAULT now(),
-    updated_at      timestamptz NOT NULL DEFAULT now(),
-    deleted_at      timestamptz                 -- soft delete
-);
-
-CREATE INDEX IF NOT EXISTS idx_products_sku        ON products(sku) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_products_slug       ON products(slug) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_products_active     ON products(active) WHERE active = true AND deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_products_featured   ON products(featured) WHERE featured = true AND deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_products_category   ON products(category_id);
-CREATE INDEX IF NOT EXISTS idx_products_created    ON products(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_products_name_trgm  ON products USING gin (name gin_trgm_ops);
-
--- ---------------------------------------------------------------------------
--- Product images (gallery)
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS product_images (
-    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    product_id  uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    url         text NOT NULL,
-    alt_text    text,
-    display_order integer NOT NULL DEFAULT 0,
-    is_primary  boolean NOT NULL DEFAULT false,
-    created_at  timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (product_id, url)
-);
-
-CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id);
-CREATE INDEX IF NOT EXISTS idx_product_images_primary ON product_images(product_id) WHERE is_primary = true;
-
--- ---------------------------------------------------------------------------
--- Audit triggers (updated_at)
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger AS $$
 BEGIN
     NEW.updated_at = now();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_products_updated_at   ON products;
-DROP TRIGGER IF EXISTS trg_categories_updated_at ON categories;
+-- ---------------------------------------------------------------------------
+-- Products (catalog master)
+-- Categories / brand / tags / dimensions were removed in this consolidation:
+-- the storefront is a flat catalog with admin filtering by status / stock /
+-- featured. If we ever reintroduce a real taxonomy (or shipping dimensions
+-- etc.) we can add it back in a V2 migration without disturbing existing rows.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS products (
+    id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    sku                 text NOT NULL UNIQUE,
+    slug                text NOT NULL UNIQUE,
+    name                text NOT NULL,
+    description         text,
+    price               bigint NOT NULL CHECK (price >= 0),
+    currency            text NOT NULL DEFAULT 'INR' CHECK (length(currency) = 3),
+
+    -- Catalog visibility is governed solely by `active` + `deleted_at`.
+    -- There's no separate "draft" state — admin fills in price/description/
+    -- stock on the edit page before flipping `active` to true.
+    taxable             boolean NOT NULL DEFAULT true,
+
+    image               text,                       -- primary image URL (denormalised)
+    avg_rating          numeric(3,2) NOT NULL DEFAULT 0 CHECK (avg_rating >= 0 AND avg_rating <= 5),
+    review_count        integer NOT NULL DEFAULT 0 CHECK (review_count >= 0),
+    sold_count          integer NOT NULL DEFAULT 0 CHECK (sold_count >= 0),
+
+    stock               integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
+
+    active              boolean NOT NULL DEFAULT true,
+    featured            boolean NOT NULL DEFAULT false,
+
+    version             bigint NOT NULL DEFAULT 0,
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    updated_at          timestamptz NOT NULL DEFAULT now(),
+    deleted_at          timestamptz,
+    published_at        timestamptz                  -- first time status moved to ACTIVE
+);
+
+CREATE INDEX IF NOT EXISTS idx_products_active      ON products(active)      WHERE active = true  AND deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_featured    ON products(featured)    WHERE featured = true AND deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_created     ON products(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_updated     ON products(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_sku         ON products(sku)         WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_slug        ON products(slug)        WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_name_trgm   ON products USING gin (name gin_trgm_ops);
+-- Low-stock index — hardcoded threshold at 5 units (products.low_stock_threshold was dropped).
+CREATE INDEX IF NOT EXISTS idx_products_low_stock   ON products(stock)
+    WHERE active = true AND deleted_at IS NULL AND stock <= 5;
+
+DROP TRIGGER IF EXISTS trg_products_updated_at ON products;
 CREATE TRIGGER trg_products_updated_at
     BEFORE UPDATE ON products
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_categories_updated_at
-    BEFORE UPDATE ON categories
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Maintain published_at: set the first time the product is marked active.
+CREATE OR REPLACE FUNCTION set_published_at() RETURNS trigger AS $$
+BEGIN
+    IF NEW.active = true AND (OLD.active IS NULL OR OLD.active = false) THEN
+        NEW.published_at := COALESCE(NEW.published_at, now());
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_products_published_at ON products;
+CREATE TRIGGER trg_products_published_at
+    BEFORE UPDATE ON products
+    FOR EACH ROW EXECUTE FUNCTION set_published_at();
 
 -- ---------------------------------------------------------------------------
--- Invariant: only one primary image per product.
+-- Event outbox (transactional outbox pattern; shared shape across services)
 -- ---------------------------------------------------------------------------
-CREATE UNIQUE INDEX IF NOT EXISTS uq_product_images_one_primary
-    ON product_images(product_id)
-    WHERE is_primary = true;
+CREATE TABLE IF NOT EXISTS event_outbox (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    aggregate_type  text NOT NULL,
+    aggregate_id    text NOT NULL,
+    event_type      text NOT NULL,
+    topic           text NOT NULL,
+    payload         jsonb NOT NULL,
+    headers         jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    published_at    timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_outbox_pending
+    ON event_outbox(created_at)
+    WHERE published_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_event_outbox_aggregate
+    ON event_outbox(aggregate_type, aggregate_id);

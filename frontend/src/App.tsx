@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { ArrowUp, WifiOff } from 'lucide-react'
 import { CartProvider } from './context/CartContext'
@@ -19,6 +19,7 @@ import OrderSuccess from './pages/OrderSuccess'
 import MyAccount from './pages/account/MyAccount'
 import Orders from './pages/account/Orders'
 import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminProductEdit from './pages/admin/AdminProductEdit'
 import ProductDetail from './pages/ProductDetail'
 import FAQ from './pages/info/FAQ';
 import PrivacyPolicy from './pages/info/PrivacyPolicy';
@@ -118,7 +119,8 @@ function App() {
                     <Route path="/my-account" element={<ProtectedRoute><MyAccount /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
                     <Route path="/admin" element={<ProtectedRoute requiredRole="ADMIN"><AdminDashboard /></ProtectedRoute>} />
-                    <Route path="/admin/product/:productId" element={<ProtectedRoute requiredRole="ADMIN"><ProductDetail /></ProtectedRoute>} />
+                    <Route path="/admin/product/:productId/edit" element={<ProtectedRoute requiredRole="ADMIN"><AdminProductEdit /></ProtectedRoute>} />
+                    <Route path="/admin/product/:productId" element={<Navigate to="/admin/product/:productId/edit" replace />} />
                     <Route path="/product/:productId" element={<ProductDetail />} />
                     <Route path="/about" element={<About />} />
                     <Route path="/contact" element={<Contact />} />

@@ -1,7 +1,7 @@
 import { useEffect, useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ShieldCheck, RotateCcw, Headphones, Star, Check, ShoppingCart, Heart } from 'lucide-react'
-import { getProducts } from '../api/productApi'
+import { getVisibleProducts } from '../api/productApi'
 import { API_BASE_URL } from '../constants'
 import { STORE } from '../constants/store'
 import { useCart } from '../context/CartContext'
@@ -16,8 +16,18 @@ export default function Home() {
   const { addToCart } = useCart()
 
   useEffect(() => {
-    getProducts().then((list) => {
-      setProducts(list.slice(0, 4))
+    // Home page shows featured products only. If admin hasn't featured
+    // anything yet, fall back to the most recently updated visible products
+    // so the section never goes empty.
+    getVisibleProducts({ featured: true }).then((featured) => {
+      if (featured.length > 0) {
+        setProducts(featured.slice(0, 4))
+        setLoading(false)
+        return
+      }
+      return getVisibleProducts().then((list) => {
+        setProducts(list.slice(0, 4))
+      })
     }).catch(() => setProducts([])).finally(() => setLoading(false))
   }, [])
 
@@ -71,7 +81,7 @@ function ProductCard({ product, added, onAdd, formatPrice }: { product: Product;
     event.stopPropagation()
     toggleWishlist({ id: product.id, sku: product.sku, name: product.name, price: product.price, image: product.image })
   }
-  return <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-lg"><Link to={`/product/${product.id}`} className="block"><div className="relative aspect-square overflow-hidden bg-slate-100"><img src={imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />{product.category?.name && <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">{product.category.name}</span>}{product.stock === 0 && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-600 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow">Out of stock</span>}<button type="button" onClick={handleToggleWishlist} aria-pressed={savedForLater} aria-label={savedForLater ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`} className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur transition ${savedForLater ? 'border-rose-500 bg-rose-500/95 text-white shadow' : 'border-white/40 bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-500'}`}><Heart className={`h-4 w-4 ${savedForLater ? 'fill-white' : ''}`} strokeWidth={2.25} /></button></div></Link><div className="p-4"><Link to={`/product/${product.id}`}><h3 className="line-clamp-2 min-h-12 font-bold text-slate-800 transition group-hover:text-rose-600">{product.name}</h3></Link><div className="mt-3 flex items-center justify-between gap-2"><span className="font-black text-slate-950">{formatPrice(product.price)}</span><span className="inline-flex items-center gap-1 text-xs text-amber-600">
+  return <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-lg"><Link to={`/product/${product.id}`} className="block"><div className="relative aspect-square overflow-hidden bg-slate-100"><img src={imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />{product.stock === 0 && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-600 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow">Out of stock</span>}<button type="button" onClick={handleToggleWishlist} aria-pressed={savedForLater} aria-label={savedForLater ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`} className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur transition ${savedForLater ? 'border-rose-500 bg-rose-500/95 text-white shadow' : 'border-white/40 bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-500'}`}><Heart className={`h-4 w-4 ${savedForLater ? 'fill-white' : ''}`} strokeWidth={2.25} /></button></div></Link><div className="p-4"><Link to={`/product/${product.id}`}><h3 className="line-clamp-2 min-h-12 font-bold text-slate-800 transition group-hover:text-rose-600">{product.name}</h3></Link><div className="mt-3 flex items-center justify-between gap-2"><span className="font-black text-slate-950">{formatPrice(product.price)}</span><span className="inline-flex items-center gap-1 text-xs text-amber-600">
               <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" strokeWidth={1.5} />
               {product.avgRating != null && product.avgRating > 0
                 ? `${product.avgRating.toFixed(1)}${product.soldCount ? ` · ${product.soldCount.toLocaleString('en-IN')} sold` : ''}`

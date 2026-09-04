@@ -5,7 +5,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.orm.jpa.JpaSystemException;
+import org.hibernate.LazyInitializationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -95,6 +97,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(JpaSystemException.class)
     public ResponseEntity<Map<String, Object>> handleJpaSystem(JpaSystemException e) {
         return body(HttpStatus.NOT_FOUND, "NOT_FOUND", e.getMessage());
+    }
+
+    /**
+     * Lazy collection accessed outside the JPA session — typically a controller
+     * that returns an {@code Order} (or other aggregate) whose {@code @OneToMany}
+     * collection was not fetched. {@code open-in-view} is intentionally disabled,
+     * so the fix is to use a {@code JOIN FETCH} repository query.
+     */
+    @ExceptionHandler({LazyInitializationException.class, HttpMessageNotWritableException.class})
+    public ResponseEntity<Map<String, Object>> handleLazyInit(Exception e) {
+        // Unwrap the underlying Hibernate cause when Jackson is the surface.
+        Throwable cause = e.getCause() != null ? e.getCause() : e;
+        log.error("Lazy initialisation / serialisation failure in order-service", e);
+        return body(HttpStatus.INTERNAL_SERVER_ERROR, "SERIALISATION_ERROR",
+                "Failed to serialise response (lazy collection not fetched). " +
+                "Cause: " + cause.getClass().getSimpleName() + ": " + cause.getMessage());
     }
 
     /** Last-resort safety net. */

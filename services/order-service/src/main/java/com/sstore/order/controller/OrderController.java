@@ -50,11 +50,15 @@ public class OrderController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public List<Order> list() { return repo.findAll(); }
+    public List<Order> list() {
+        // JOIN FETCH items so the JSON serialiser can read the collection
+        // (open-in-view is disabled).
+        return repo.findAllWithItems();
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<Order> get(@PathVariable String id, Authentication authentication) {
-        Optional<Order> order = repo.findById(UUID.fromString(id));
+        Optional<Order> order = repo.findByIdWithItems(UUID.fromString(id));
         if (order.isEmpty()) return ResponseEntity.notFound().build();
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
@@ -154,7 +158,7 @@ public class OrderController {
             Authentication auth) {
         try {
             orderService.transitionStatus(id, toStatus, "admin:" + auth.getName());
-            Order refreshed = repo.findById(id).orElseThrow();
+            Order refreshed = repo.findByIdWithItems(id).orElseThrow();
             return ResponseEntity.ok(refreshed);
         } catch (IllegalStateException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();

@@ -8,11 +8,11 @@
 		<version>4.0.3</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.asstore</groupId>
+	<groupId>com.sstore</groupId>
 	<artifactId>product-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>product-service</name>
-	<description>Demo project for Spring Boot</description>
+	<name>sstore-product-service</name>
+	<description>SStore product catalog bounded context — manages products, categories, pricing, and the read model used by the storefront. Source of truth for product data and the only writer to the product database.</description>
 	<url/>
 	<licenses>
 		<license/>

@@ -2,18 +2,26 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { toast } from 'sonner'
 
 export interface WishlistItem {
-  id: number
+  id: string
+  /**
+   * Product SKU as registered with inventory-service. Required at checkout
+   * because order-service forwards `lines[].sku` to inventory-service to
+   * reserve stock. Without it, inventory returns "Unknown SKU" and the
+   * order-service propagates that as a 500.
+   */
+  sku: string
   name: string
+  /** Price in smallest currency unit (paise). */
   price: number
   image: string
 }
 
 interface WishlistContextType {
   items: WishlistItem[]
-  isInWishlist: (id: number) => boolean
+  isInWishlist: (id: string) => boolean
   toggleWishlist: (product: WishlistItem) => void
   addToWishlist: (product: WishlistItem) => void
-  removeFromWishlist: (id: number) => void
+  removeFromWishlist: (id: string) => void
   clearWishlist: () => void
   count: number
 }
@@ -33,7 +41,8 @@ function readStorage(): WishlistItem[] {
       (item: unknown): item is WishlistItem =>
         typeof item === 'object' &&
         item !== null &&
-        typeof (item as WishlistItem).id === 'number' &&
+        typeof (item as WishlistItem).id === 'string' &&
+        typeof (item as WishlistItem).sku === 'string' &&
         typeof (item as WishlistItem).name === 'string' &&
         typeof (item as WishlistItem).price === 'number' &&
         typeof (item as WishlistItem).image === 'string',
@@ -70,7 +79,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  const isInWishlist = (id: number) => items.some(item => item.id === id)
+  const isInWishlist = (id: string) => items.some(item => item.id === id)
 
   const addToWishlist = (product: WishlistItem) => {
     let added = false
@@ -86,7 +95,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const removeFromWishlist = (id: number) => {
+  const removeFromWishlist = (id: string) => {
     let removedName: string | undefined
     setItems(prev => {
       const target = prev.find(item => item.id === id)

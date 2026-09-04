@@ -1,34 +1,70 @@
 server:
   port: ${SERVER_PORT:8083}
 
-stripe:
-  secret-key: ${STRIPE_SECRET_KEY:sk_test_replace_with_your_key}
-  success-url: ${STRIPE_SUCCESS_URL:http://localhost:5173/order-success}
-  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:5173/checkout}
-
 spring:
   application:
-    name: ${SPRING_APPLICATION_NAME:order-service}
+    name: order-service
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/order_db}
     username: ${SPRING_DATASOURCE_USERNAME:admin}
     password: ${SPRING_DATASOURCE_PASSWORD:admin}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.postgresql.Driver}
+
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:false}
     database-platform: ${JPA_DATABASE_PLATFORM:org.hibernate.dialect.PostgreSQLDialect}
+    open-in-view: false
+
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
+    # Local dev only — allow `flyway clean` so the consolidated V1 can rebuild
+    # the schema if an old V2-V7 schema_version row is left over.
+    clean-disabled: ${FLYWAY_CLEAN_DISABLED:false}
+    validate-on-migrate: true
+
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/sstore}
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/sstore/protocol/openid-connect/certs}
-  flyway:
-    enabled: ${FLYWAY_ENABLED:true}
-    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
-    validate-on-migrate: true
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      group-id: order-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.sstore.order.kafka.PaymentEvent
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    listener:
+      ack-mode: manual_immediate
+
+topics:
+  payments: payments
+  orders: orders
+
+services:
+  inventory:
+    base-url: ${INVENTORY_SERVICE_URL:http://localhost:8085}
+  payment:
+    base-url: ${PAYMENT_SERVICE_URL:http://localhost:8084}
 
 management:
   endpoints:
@@ -40,3 +76,9 @@ management:
       probes:
         enabled: true
       show-details: always
+
+logging:
+  level:
+    com.sstore: INFO
+    org.springframework.kafka: WARN
+

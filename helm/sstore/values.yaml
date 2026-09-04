@@ -5,13 +5,23 @@ secrets:
   postgresSecretName: postgres-secret
   keycloakSecretName: keycloak-secret
   orderServiceSecretName: order-service-secret
+  paymentServiceSecretName: payment-service-secret
   grafanaSecretName: grafana-admin
 
 sealedSecrets:
   postgres: {}
   keycloak: {}
   orderService: {}
+  paymentService: {}
   grafana: {}
+
+redpanda:
+  enabled: true
+  image: redpandadata/redpanda:v24.3.7
+  storage: 5Gi
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 1Gi}
 
 postgres:
   image: postgres:16-alpine
@@ -21,6 +31,9 @@ postgres:
     - auth_db
     - order_db
     - product_db
+    - payment_db
+    - inventory_db
+    - review_db
 
 keycloak:
   image: quay.io/keycloak/keycloak:26.3
@@ -45,9 +58,27 @@ services:
     port: 8083
     replicas: 1
     database: order_db
-    stripeSecretKey: ""
-    stripeSuccessUrl: https://app.sstore.local/order-success
-    stripeCancelUrl: https://app.sstore.local/checkout
+    resources:
+      requests: {cpu: 250m, memory: 512Mi}
+      limits: {cpu: "1", memory: 1Gi}
+  payment-service:
+    image: mayurb123/sstore:payment-service
+    port: 8084
+    replicas: 1
+    database: payment_db
+    razorpayKeyId: ""
+    razorpayKeySecret: ""
+    razorpayWebhookSecret: ""
+    razorpayCurrency: INR
+    razorpayCompanyName: SStore
+    resources:
+      requests: {cpu: 250m, memory: 512Mi}
+      limits: {cpu: "1", memory: 1Gi}
+  inventory-service:
+    image: mayurb123/sstore:inventory-service
+    port: 8085
+    replicas: 1
+    database: inventory_db
     resources:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}
@@ -55,6 +86,25 @@ services:
     image: mayurb123/sstore:api-gateway
     port: 9090
     replicas: 1
+    resources:
+      requests: {cpu: 250m, memory: 512Mi}
+      limits: {cpu: "1", memory: 1Gi}
+  review-service:
+    image: mayurb123/sstore:review-service
+    port: 8086
+    replicas: 1
+    database: review_db
+    moderationPolicy: AUTO_APPROVE      # AUTO_APPROVE | ALWAYS_PENDING | ALWAYS_APPROVE
+    requirePurchase: true
+    editWindowDays: 30
+    helpfulVoteEnabled: true
+    helpfulVoteRequireLogin: true
+    ratingMin: 1
+    ratingMax: 5
+    titleMin: 3
+    titleMax: 120
+    bodyMin: 10
+    bodyMax: 4000
     resources:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}

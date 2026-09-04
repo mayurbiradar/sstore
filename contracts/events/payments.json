@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Payment events",
+  "description": "Events published by payment-service. topic: payments. key: orderId. The source of truth for payment status — order-service subscribes and updates the order; inventory-service subscribes and commits/releases stock.",
+  "type": "object",
+  "oneOf": [
+    {
+      "title": "PaymentSucceeded",
+      "type": "object",
+      "required": ["eventType", "paymentId", "orderId", "provider", "amount", "currency", "occurredAt"],
+      "properties": {
+        "eventType": { "const": "PaymentSucceeded" },
+        "paymentId": { "type": "string", "format": "uuid" },
+        "orderId": { "type": "string", "format": "uuid" },
+        "provider": { "type": "string", "enum": ["razorpay", "stripe"] },
+        "providerPaymentId": { "type": "string" },
+        "amount": { "type": "integer" },
+        "currency": { "type": "string" },
+        "occurredAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    {
+      "title": "PaymentFailed",
+      "type": "object",
+      "required": ["eventType", "paymentId", "orderId", "provider", "reason", "occurredAt"],
+      "properties": {
+        "eventType": { "const": "PaymentFailed" },
+        "paymentId": { "type": "string", "format": "uuid" },
+        "orderId": { "type": "string", "format": "uuid" },
+        "provider": { "type": "string", "enum": ["razorpay", "stripe"] },
+        "reason": { "type": "string" },
+        "occurredAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    {
+      "title": "PaymentRefunded",
+      "type": "object",
+      "required": ["eventType", "paymentId", "orderId", "amount", "currency", "occurredAt"],
+      "properties": {
+        "eventType": { "const": "PaymentRefunded" },
+        "paymentId": { "type": "string", "format": "uuid" },
+        "orderId": { "type": "string", "format": "uuid" },
+        "amount": { "type": "integer" },
+        "currency": { "type": "string" },
+        "occurredAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  ]
+}

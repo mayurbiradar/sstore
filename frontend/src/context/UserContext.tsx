@@ -2,8 +2,10 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { googleIdentityProvider, keycloak } from '../auth/keycloak';
 import { getMyProfile } from '../api/userApi';
+import type { KeycloakUser } from '../api/userApi';
 
 interface User {
+  /** Keycloak user id (UUID string). */
   id?: string;
   firstName?: string;
   lastName?: string;
@@ -27,6 +29,30 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+interface JwtClaims {
+  sub: string;
+  given_name?: string;
+  family_name?: string;
+  email?: string;
+  realm_access?: { roles?: string[] };
+}
+
+function fromKeycloak(
+  profile: KeycloakUser | undefined,
+  token: JwtClaims | null | undefined,
+): User | null {
+  if (!profile?.email && !token?.email) return null;
+  const isAdmin = profile?.role === 'ADMIN' || Boolean(token?.realm_access?.roles?.includes('ADMIN'));
+  return {
+    id: profile?.id ?? token?.sub,
+    firstName: profile?.firstName ?? token?.given_name,
+    lastName: profile?.lastName ?? token?.family_name,
+    email: profile?.email ?? token?.email,
+    phone: profile?.phone ?? '',
+    role: isAdmin ? 'ADMIN' : 'USER',
+  };
+}
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -35,44 +61,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const fetchUser = async () => {
       if (!keycloak?.authenticated || !keycloak.token) {
         setUser(null);
+        setAuthReady(true);
         return;
       }
+      const accessToken = keycloak.token;
+      localStorage.setItem('accessToken', accessToken);
+      const tokenParsed = keycloak.tokenParsed as JwtClaims | undefined;
+      // Seed from the JWT so the UI has values immediately.
+      setUser(fromKeycloak(undefined, tokenParsed));
       try {
-        const accessToken = keycloak.token;
-        localStorage.setItem('accessToken', accessToken);
-        
-        // Use Keycloak's token data directly
-        const profile = keycloak.tokenParsed as any;
-        if (profile?.email) {
-          setUser({
-            id: profile.sub,
-            firstName: profile.given_name,
-            lastName: profile.family_name,
-            email: profile.email,
-            phone: '',
-            role: profile.realm_access?.roles?.includes('ADMIN') ? 'ADMIN' : 'USER',
-          });
-          try {
-            const response = await getMyProfile(accessToken);
-            setUser({
-              id: profile.sub,
-              firstName: response.data.firstName || profile.given_name,
-              lastName: response.data.lastName || profile.family_name,
-              email: response.data.email || profile.email,
-              phone: response.data.phone || '',
-              role: profile.realm_access?.roles?.includes('ADMIN') ? 'ADMIN' : 'USER',
-            });
-          } catch {
-          }
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user:', error);
-        setUser(null);
+        const response = await getMyProfile(accessToken);
+        const merged = fromKeycloak(response, tokenParsed);
+        if (merged) setUser(merged);
+      } catch {
+        // Best-effort: we already populated from the JWT.
+      } finally {
+        setAuthReady(true);
       }
     };
-    fetchUser().finally(() => setAuthReady(true));
+    fetchUser();
 
     const authClient = keycloak;
     if (!authClient) return;

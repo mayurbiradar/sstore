@@ -1,21 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, Lock, Loader2 } from 'lucide-react'
+import { ShoppingCart, Lock, Loader2, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCart } from '../context/CartContext'
 import type { CartItem } from '../context/CartContext'
 import { API_BASE_URL } from "../constants";
+import { STORE } from "../constants/store";
 import { useUser } from '../context/UserContext';
-import { createStripeSession } from '../api/orderApi';
+import {
+  createOrder,
+  startOnlinePaymentSession,
+  verifyRazorpayPayment,
+  getMyAddresses,
+  type Address,
+  type CreateOrderPayload,
+} from '../api/orderApi';
+
+const formatPrice = (paise: number) =>
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 
 export default function Checkout() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { cart, clearCart, addOrder } = useCart()
+  const { cart, clearCart } = useCart()
   const { user } = useUser();
   const [loading, setLoading] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'stripe'>('cod');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod');
   const orderCompleted = useRef(false);
 
   // Get selected items from navigation state, fallback to all cart items
@@ -42,18 +53,6 @@ export default function Checkout() {
     pincode: '',
   })
 
-  interface Address {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    address: string;
-    city: string;
-    state: string;
-    pincode: string;
-  }
-
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(false);
@@ -72,65 +71,74 @@ export default function Checkout() {
     setLoading(true);
 
     try {
-      // Build order payload matching backend
-      const userId = user?.id || '';
-      const subtotal = selectedItems.reduce((total: number, item: CartItem) => total + (item.price * item.quantity), 0);
-      const shipping = 0; // Always free shipping
-      const tax = Math.round((subtotal + shipping) * 0.03); // GST 3%
-      const totalAmount = subtotal + shipping + tax;
+      const token = localStorage.getItem('accessToken') || undefined;
+      // Build order payload matching the backend Order entity.
+      // Backend ignores `userId`, computes `totalAmount` server-side, and
+      // accepts only these fields at the top level:
+      //   address, items, paymentMethod, currency, notes
       const orderItems = selectedItems.map((item: CartItem) => ({
         productId: item.id,
-        sku: `SKU-${Math.random().toString(36).substring(2, 10)}`,
+        sku: item.sku,
         productName: item.name,
-        price: item.price,
+        price: item.price,           // paise
         quantity: item.quantity,
         subtotal: item.price * item.quantity,
         image: item.image && item.image.startsWith('http')
           ? item.image.replace(API_BASE_URL, '')
-          : item.image || ''
+          : item.image || '',
       }));
-      const selectedAddr = selectedAddressId && selectedAddressId !== 'new' ? addresses.find(addr => addr.id === selectedAddressId) : null;
-      const addressPayload = selectedAddr ? {
-        ...selectedAddr,
-        userId,
-        isDeleted: false
-      } : {
-        ...formData,
-        userId,
-        isDeleted: false
-      };
-      const orderPayload = {
-        userId,
-        status: 'CREATED',
-        totalAmount,
-        currency: 'INR',
+      const selectedAddr = selectedAddressId && selectedAddressId !== 'new'
+        ? addresses.find(addr => addr.id === selectedAddressId) ?? null
+        : null;
+      const addressPayload: Address = selectedAddr
+        ? { ...selectedAddr }
+        : { ...formData, country: 'IN' };
+
+      const orderPayload: CreateOrderPayload = {
+        address: addressPayload,
         items: orderItems,
-        subtotal,
-        shipping,
-        tax,
-        address: addressPayload
+        paymentMethod: paymentMethod === 'razorpay' ? 'ONLINE' : 'COD',
+        currency: 'INR',
       };
 
-      if (paymentMethod === 'stripe') {
-        const response = await createStripeSession(orderPayload, localStorage.getItem('accessToken') || undefined);
-        if (!response.data?.url) throw new Error('Stripe session was not created');
-        window.location.assign(response.data.url);
+      if (paymentMethod === 'razorpay') {
+        await payWithRazorpay(orderPayload, (orderId, paymentId) => {
+          orderCompleted.current = true;
+          clearCart();
+          const params = new URLSearchParams({ order_id: orderId })
+          if (paymentId) params.set('razorpay_payment_id', paymentId)
+          navigate('/order-success?' + params.toString())
+        });
         return;
       }
 
-      const orderResponse = await addOrder(orderPayload);
-      if (!orderResponse) throw new Error('Order was not created');
+      const created = await createOrder(orderPayload, token);
       orderCompleted.current = true;
       clearCart();
       toast.success('Order placed successfully', {
-        description: `Order #${orderResponse.id} confirmed. Redirecting…`,
+        description: `Order #${created.id} confirmed. Redirecting…`,
       });
-      navigate('/order-success', { state: { order: orderResponse } });
+      navigate('/order-success', { state: { order: created } });
     } catch (error) {
       console.error('Order submission error:', error);
-      toast.error('Could not place your order', {
-        description: 'Please review your details and try again.',
-      });
+      // Pull the most useful message off the Axios error. The order-service
+      // surfaces upstream messages verbatim (e.g. "Unknown SKU …" or
+      // "Insufficient stock for …") so the user sees the real reason. Fall
+      // back to a generic line if the response shape is unexpected.
+      const axiosErr = error as { response?: { data?: { message?: string; error?: string } }; message?: string };
+      const serverMessage =
+        axiosErr?.response?.data?.message ||
+        axiosErr?.response?.data?.error ||
+        axiosErr?.message ||
+        'Please review your details and try again.';
+      const isStock = /insufficient|stock/i.test(serverMessage);
+      const isUnknownSku = /unknown sku|register it/i.test(serverMessage);
+      const description = isStock
+        ? `${serverMessage} — try a smaller quantity or remove the item.`
+        : isUnknownSku
+        ? `${serverMessage} — an admin needs to add this product to inventory.`
+        : serverMessage;
+      toast.error('Could not place your order', { description });
     } finally {
       setLoading(false);
     }
@@ -141,15 +149,10 @@ export default function Checkout() {
 
     setLoadingAddresses(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${API_BASE_URL}/api/orders/users/${user.id}/addresses`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
+      const token = localStorage.getItem('accessToken') || undefined;
+      const data = await getMyAddresses(token);
       setAddresses(data);
-      if (data.length > 0) {
+      if (data.length > 0 && data[0].id) {
         handleAddressSelect(data[0].id);
       }
     } catch (error) {
@@ -179,27 +182,32 @@ export default function Checkout() {
       const selectedAddress = addresses.find(addr => addr.id === addressId);
       if (selectedAddress) {
         setFormData({
-          firstName: selectedAddress.firstName,
-          lastName: selectedAddress.lastName,
-          email: selectedAddress.email,
-          phone: selectedAddress.phone,
-          address: selectedAddress.address,
-          city: selectedAddress.city,
-          state: selectedAddress.state,
-          pincode: selectedAddress.pincode,
+          firstName: selectedAddress.firstName ?? '',
+          lastName: selectedAddress.lastName ?? '',
+          email: selectedAddress.email ?? '',
+          phone: selectedAddress.phone ?? '',
+          address: selectedAddress.address ?? '',
+          city: selectedAddress.city ?? '',
+          state: selectedAddress.state ?? '',
+          pincode: selectedAddress.pincode ?? '',
         });
       }
     }
   };
 
-  const subtotal = selectedItems.reduce((total: number, item: CartItem) => total + (item.price * item.quantity), 0);
-  const shipping = 0; // Always free shipping
-  const tax = Math.round((subtotal + shipping) * 0.03); // GST 3%
-  const total = subtotal + shipping + tax;
+  // Display totals only — backend will recompute the authoritative totalAmount.
+  const subtotalPaise = selectedItems.reduce(
+    (total: number, item: CartItem) => total + item.price * item.quantity,
+    0,
+  );
+  const taxPaise = Math.round(subtotalPaise * 0.03); // GST 3%
+  const totalPaise = subtotalPaise + taxPaise;
 
-  const isFormValid = (selectedAddressId && selectedAddressId !== 'new') || (formData.firstName && formData.lastName && formData.email &&
-                     formData.phone && formData.address && formData.city &&
-                     formData.state && formData.pincode);
+  const isFormValid =
+    (selectedAddressId && selectedAddressId !== 'new') ||
+    (formData.firstName && formData.lastName && formData.email &&
+      formData.phone && formData.address && formData.city &&
+      formData.state && formData.pincode);
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-[#f7f8fa] px-4 py-8 sm:px-6 lg:px-8">
@@ -254,14 +262,14 @@ export default function Checkout() {
                         <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Loading your addresses...</div>
                       ) : (
                         <div className="space-y-3">
-                          {addresses.map((addr) => (
+                          {addresses.filter(addr => addr.id).map((addr) => (
                             <label key={addr.id} className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${selectedAddressId === addr.id ? 'border-rose-500 bg-rose-50/50' : 'border-slate-200 hover:border-rose-300'}`}>
                               <input
                                 type="radio"
                                 name="address"
                                 value={addr.id}
                                 checked={selectedAddressId === addr.id}
-                                onChange={() => handleAddressSelect(addr.id)}
+                                onChange={() => addr.id && handleAddressSelect(addr.id)}
                                 className="mr-3"
                               />
                               <span className="text-sm"><strong className="block text-slate-900">{addr.firstName} {addr.lastName}</strong><span className="mt-1 block leading-5 text-slate-500">{addr.address}, {addr.city}, {addr.state} - {addr.pincode}</span><span className="mt-1 block text-slate-500">{addr.phone} · {addr.email}</span></span>
@@ -448,10 +456,18 @@ export default function Checkout() {
                       </div>
                       <p className="rounded-lg bg-white/70 p-4 text-sm text-slate-600"><strong className="text-slate-900">Safe & secure:</strong> No online payment required.</p>
                     </label>
-                    <label className={`cursor-pointer rounded-xl border p-5 transition ${paymentMethod === 'stripe' ? 'border-indigo-400 bg-indigo-50/60' : 'border-slate-200 hover:border-rose-300'}`}>
-                      <input type="radio" name="paymentMethod" value="stripe" checked={paymentMethod === 'stripe'} onChange={() => setPaymentMethod('stripe')} className="sr-only" />
-                      <div className="flex items-center gap-4 mb-4"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-white font-bold text-indigo-700">▣</div><div><h3 className="text-lg font-bold text-slate-900">Card / UPI</h3><p className="text-sm text-slate-600">Secure payment powered by Stripe</p></div></div>
-                      <p className="rounded-lg bg-white/70 p-4 text-sm text-slate-600">You’ll be redirected to Stripe to complete payment.</p>
+                    <label className={`cursor-pointer rounded-xl border p-5 transition ${paymentMethod === 'razorpay' ? 'border-rose-400 bg-rose-50/60' : 'border-slate-200 hover:border-rose-300'}`}>
+                      <input type="radio" name="paymentMethod" value="razorpay" checked={paymentMethod === 'razorpay'} onChange={() => setPaymentMethod('razorpay')} className="sr-only" />
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-rose-600">
+                          <Wallet className="h-5 w-5" strokeWidth={2.25} />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900">Razorpay</h3>
+                          <p className="text-sm text-slate-600">Pay securely with Card · UPI · Net banking · Wallets</p>
+                        </div>
+                      </div>
+                      <p className="rounded-lg bg-white/70 p-4 text-sm text-slate-600"><strong className="text-slate-900">Secure checkout:</strong> you’ll complete payment in a Razorpay window — no card details stored on our servers.</p>
                     </label>
                   </div>
                 </div>}
@@ -471,7 +487,7 @@ export default function Checkout() {
                       </>
                     ) : (
                       <>
-                        {paymentMethod === 'stripe' ? <><Lock className="h-5 w-5" strokeWidth={2.5} /> Pay securely</> : <><ShoppingCart className="h-5 w-5" strokeWidth={2.5} /> Place Order</>} - ₹{total.toLocaleString('en-IN')}
+                        {paymentMethod === 'razorpay' ? <><Lock className="h-5 w-5" strokeWidth={2.5} /> Pay {formatPrice(totalPaise)}</> : <><ShoppingCart className="h-5 w-5" strokeWidth={2.5} /> Place Order — {formatPrice(totalPaise)}</>}
                       </>
                     )}
                   </button>
@@ -510,7 +526,7 @@ export default function Checkout() {
                         <div className="flex justify-between items-center mt-1">
                           <span className="text-sm text-slate-500">Qty: {item.quantity}</span>
                           <span className="text-sm font-bold text-slate-900">
-                            ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                            {formatPrice(item.price * item.quantity)}
                           </span>
                         </div>
                       </div>
@@ -522,7 +538,7 @@ export default function Checkout() {
                 <div className="space-y-3 border-t border-slate-200 pt-4">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Subtotal ({selectedItems.length} items)</span>
-                    <span className="font-bold">₹{subtotal.toLocaleString('en-IN')}</span>
+                    <span className="font-bold">{formatPrice(subtotalPaise)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Shipping</span>
@@ -532,7 +548,7 @@ export default function Checkout() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">GST (3%)</span>
-                    <span className="font-bold">₹{tax.toLocaleString('en-IN')}</span>
+                    <span className="font-bold">{formatPrice(taxPaise)}</span>
                   </div>
                 </div>
 
@@ -541,7 +557,7 @@ export default function Checkout() {
                   <div className="flex justify-between items-center">
                     <span className="text-xl font-black text-slate-950">Total</span>
                     <span className="text-2xl font-black text-rose-600">
-                      ₹{total.toLocaleString('en-IN')}
+                      {formatPrice(totalPaise)}
                     </span>
                   </div>
                 </div>
@@ -570,4 +586,129 @@ export default function Checkout() {
       </section>
     </main>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Razorpay integration
+// ---------------------------------------------------------------------------
+
+interface RazorpaySuccessResponse {
+  razorpay_payment_id: string
+  razorpay_order_id: string
+  razorpay_signature: string
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void }
+  }
+}
+
+/**
+ * Loads `https://checkout.razorpay.com/v1/checkout.js` if it isn't already
+ * available on `window`. Resolves once the SDK is ready.
+ */
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise(resolve => {
+    if (typeof window === 'undefined') {
+      resolve(false)
+      return
+    }
+    if (window.Razorpay) {
+      resolve(true)
+      return
+    }
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(Boolean(window.Razorpay)))
+      existing.addEventListener('error', () => resolve(false))
+      return
+    }
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+    script.onload = () => resolve(Boolean(window.Razorpay))
+    script.onerror = () => resolve(false)
+    document.head.appendChild(script)
+  })
+}
+
+/**
+ * Drive the full Razorpay payment flow:
+ *  1. Ask the backend to create a Razorpay order for the given cart payload.
+ *  2. Open the Razorpay checkout popup with the returned key/amount/order.
+ *  3. On success, verify the signature server-side, then call `onPaid(orderId)`.
+ *  4. On user dismissal or failure, surface a toast — don't navigate.
+ */
+async function payWithRazorpay(
+  orderPayload: CreateOrderPayload,
+  onPaid: (orderId: string, paymentId?: string) => void,
+) {
+  const ready = await loadRazorpayScript()
+  if (!ready || !window.Razorpay) {
+    toast.error('Razorpay is unavailable', {
+      description: 'Please refresh the page or choose cash on delivery.',
+    })
+    return
+  }
+
+  const token = localStorage.getItem('accessToken') || undefined
+
+  // 1. Create the order in order-service. order-service will reserve stock
+  //    synchronously and emit OrderCreated on Kafka.
+  const order = await createOrder(orderPayload, token)
+  if (!order?.id) throw new Error('Order was not created')
+
+  // 2. Ask order-service to call payment-service and start a Razorpay
+  //    session for this order. The response carries the widget params.
+  const session = await startOnlinePaymentSession(order.id, token)
+
+  if (!session?.keyId || !session?.razorpayOrderId || !session?.amount || !session?.paymentId) {
+    throw new Error('Razorpay session was not created')
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const checkout = new window.Razorpay!({
+      key: session.keyId,
+      amount: session.amount,
+      currency: session.currency || 'INR',
+      name: STORE.name,
+      description: `Order #${order.id}`,
+      order_id: session.razorpayOrderId,
+      prefill: session.customer || {},
+      theme: { color: '#e11d48' },
+      modal: {
+        ondismiss: () => {
+          toast('Payment cancelled', {
+            description: 'You can try again or choose a different method.',
+          })
+          resolve()
+        },
+      },
+      handler: async (response: RazorpaySuccessResponse) => {
+        try {
+          await verifyRazorpayPayment(
+            {
+              paymentId: session.paymentId!,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            },
+            token,
+          )
+          toast.success('Payment received', {
+            description: `Order #${order.id} confirmed. Redirecting…`,
+          })
+          onPaid(order.id, response.razorpay_payment_id)
+          resolve()
+        } catch (verifyError) {
+          console.error('Razorpay verification failed:', verifyError)
+          toast.error('Payment could not be verified', {
+            description: 'Your bank may have charged you — please contact support.',
+          })
+          reject(verifyError)
+        }
+      },
+    })
+    checkout.open()
+  })
 }

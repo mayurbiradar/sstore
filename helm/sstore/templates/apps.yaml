@@ -16,6 +16,7 @@ data:
   KEYCLOAK_ISSUER_URI: https://{{ $.Values.hosts.keycloak }}/realms/{{ $.Values.keycloak.realm }}
   KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/{{ $.Values.keycloak.realm }}/protocol/openid-connect/certs
   FLYWAY_ENABLED: "true"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
   {{- else if eq $name "order-service" }}
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
   JPA_DDL_AUTO: validate
@@ -24,11 +25,64 @@ data:
   KEYCLOAK_ISSUER_URI: https://{{ $.Values.hosts.keycloak }}/realms/{{ $.Values.keycloak.realm }}
   KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/{{ $.Values.keycloak.realm }}/protocol/openid-connect/certs
   FLYWAY_ENABLED: "true"
-  STRIPE_SUCCESS_URL: {{ $config.stripeSuccessUrl | quote }}
-  STRIPE_CANCEL_URL: {{ $config.stripeCancelUrl | quote }}
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  TOPICS_ORDERS: orders
+  TOPICS_PAYMENTS: payments
+  SERVICES_INVENTORY_BASE_URL: http://inventory-service:8085
+  SERVICES_PAYMENT_BASE_URL: http://payment-service:8084
+  {{- else if eq $name "payment-service" }}
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
+  JPA_DDL_AUTO: validate
+  JPA_SHOW_SQL: "false"
+  SPRING_APPLICATION_NAME: payment-service
+  KEYCLOAK_ISSUER_URI: https://{{ $.Values.hosts.keycloak }}/realms/{{ $.Values.keycloak.realm }}
+  KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/{{ $.Values.keycloak.realm }}/protocol/openid-connect/certs
+  FLYWAY_ENABLED: "true"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  TOPICS_ORDERS: orders
+  TOPICS_PAYMENTS: payments
+  RAZORPAY_CURRENCY: {{ $config.razorpayCurrency | quote }}
+  RAZORPAY_COMPANY_NAME: {{ $config.razorpayCompanyName | quote }}
+  {{- else if eq $name "inventory-service" }}
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
+  JPA_DDL_AUTO: validate
+  JPA_SHOW_SQL: "false"
+  SPRING_APPLICATION_NAME: inventory-service
+  KEYCLOAK_ISSUER_URI: https://{{ $.Values.hosts.keycloak }}/realms/{{ $.Values.keycloak.realm }}
+  KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/{{ $.Values.keycloak.realm }}/protocol/openid-connect/certs
+  FLYWAY_ENABLED: "true"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  TOPICS_ORDERS: orders
+  TOPICS_PAYMENTS: payments
+  RESERVATION_TTL_MINUTES: "15"
+  {{- else if eq $name "review-service" }}
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
+  JPA_DDL_AUTO: validate
+  JPA_SHOW_SQL: "false"
+  SPRING_APPLICATION_NAME: review-service
+  KEYCLOAK_ISSUER_URI: https://{{ $.Values.hosts.keycloak }}/realms/{{ $.Values.keycloak.realm }}
+  KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/{{ $.Values.keycloak.realm }}/protocol/openid-connect/certs
+  FLYWAY_ENABLED: "true"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  TOPICS_REVIEWS: reviews
+  TOPICS_ORDERS: orders
+  REVIEW_MODERATION_POLICY: {{ $config.moderationPolicy | quote }}
+  REVIEW_REQUIRE_PURCHASE: {{ $config.requirePurchase | quote }}
+  REVIEW_EDIT_WINDOW_DAYS: {{ $config.editWindowDays | quote }}
+  REVIEW_HELPFUL_VOTE_ENABLED: {{ $config.helpfulVoteEnabled | quote }}
+  REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN: {{ $config.helpfulVoteRequireLogin | quote }}
+  REVIEW_RATING_MIN: {{ $config.ratingMin | quote }}
+  REVIEW_RATING_MAX: {{ $config.ratingMax | quote }}
+  REVIEW_TITLE_MIN: {{ $config.titleMin | quote }}
+  REVIEW_TITLE_MAX: {{ $config.titleMax | quote }}
+  REVIEW_BODY_MIN: {{ $config.bodyMin | quote }}
+  REVIEW_BODY_MAX: {{ $config.bodyMax | quote }}
   {{- else }}
   PRODUCT_SERVICE_URL: http://product-service:8082
   ORDER_SERVICE_URL: http://order-service:8083
+  PAYMENT_SERVICE_URL: http://payment-service:8084
+  INVENTORY_SERVICE_URL: http://inventory-service:8085
+  REVIEW_SERVICE_URL: http://review-service:8086
   KEYCLOAK_URL: http://keycloak:8080
   KEYCLOAK_REALM: {{ $.Values.keycloak.realm | quote }}
   KEYCLOAK_ISSUER_URI: https://{{ $.Values.hosts.keycloak }}/realms/{{ $.Values.keycloak.realm }}
@@ -85,8 +139,8 @@ spec:
             - name: OTEL_METRICS_EXPORTER
               value: none
             - name: OTEL_LOGS_EXPORTER
-              value: none
-          {{- if or (eq $name "product-service") (eq $name "order-service") }}
+              value: none(eq $name "review-service") 
+          {{- if or (eq $name "product-service") (eq $name "order-service") (eq $name "payment-service") (eq $name "inventory-service") }}
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.postgresSecretName }}, key: POSTGRES_USER}}
             - name: SPRING_DATASOURCE_PASSWORD
@@ -98,8 +152,8 @@ spec:
           {{- if ne $name "frontend" }}
           envFrom:
             - configMapRef: {name: {{ $name }}-config}
-          {{- if eq $name "order-service" }}
-            - secretRef: {name: {{ $.Values.secrets.orderServiceSecretName }}}
+          {{- if eq $name "payment-service" }}
+            - secretRef: {name: {{ $.Values.secrets.paymentServiceSecretName }}}
           {{- end }}
           {{- end }}
           resources:
@@ -114,10 +168,12 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ .Values.secrets.orderServiceSecretName }}
+  name: {{ .Values.secrets.paymentServiceSecretName }}
   labels:
-    {{- include "sstore.labels" . | nindent 4 }}
+  {{- include "sstore.labels" . | nindent 4 }}
 type: Opaque
 stringData:
-  STRIPE_SECRET_KEY: {{ (index .Values.services "order-service").stripeSecretKey | quote }}
+  RAZORPAY_KEY_ID: {{ (index .Values.services "payment-service").razorpayKeyId | quote }}
+  RAZORPAY_KEY_SECRET: {{ (index .Values.services "payment-service").razorpayKeySecret | quote }}
+  RAZORPAY_WEBHOOK_SECRET: {{ (index .Values.services "payment-service").razorpayWebhookSecret | quote }}
 {{- end }}

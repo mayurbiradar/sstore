@@ -2,6 +2,9 @@ import { Link } from 'react-router-dom'
 import type { CartItem } from '../../context/CartContext'
 import { API_BASE_URL } from '../../constants'
 
+const formatPrice = (paise: number) =>
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+
 interface CartItemRowProps {
   item: CartItem
   selected: boolean
@@ -54,7 +57,7 @@ export default function CartItemRow({
               {item.name}
             </Link>
             <p className="mt-1 text-sm text-slate-500">
-              ₹{item.price.toLocaleString('en-IN')} each
+              {formatPrice(item.price)} each
             </p>
           </div>
           <button

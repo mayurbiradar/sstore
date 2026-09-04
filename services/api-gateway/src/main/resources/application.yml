@@ -42,6 +42,24 @@ spring:
               predicates:
                 - Path=/api/orders/**
 
+            # ---------- Payment Service -----------------------------
+            - id: payment-service
+              uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/payments/**
+
+            # ---------- Inventory Service ---------------------------
+            - id: inventory-service
+              uri: ${INVENTORY_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/inventory/**
+
+            # ---------- Review Service -----------------------------
+            - id: review-service
+              uri: ${REVIEW_SERVICE_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/reviews/**
+
 # ---------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------

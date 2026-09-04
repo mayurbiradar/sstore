@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Order events",
+  "description": "Events published by order-service. topic: orders. key: orderId. payload is one of the eventType values below.",
+  "type": "object",
+  "oneOf": [
+    {
+      "title": "OrderCreated",
+      "type": "object",
+      "required": ["eventType", "orderId", "userId", "totalAmount", "currency", "items", "createdAt"],
+      "properties": {
+        "eventType": { "const": "OrderCreated" },
+        "orderId": { "type": "string", "format": "uuid" },
+        "userId": { "type": "string" },
+        "totalAmount": { "type": "integer", "description": "Amount in the smallest currency unit (paise)." },
+        "currency": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["COD", "ONLINE"] },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sku", "quantity"],
+            "properties": {
+              "sku": { "type": "string" },
+              "productId": { "type": "string", "format": "uuid" },
+              "productName": { "type": "string" },
+              "quantity": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    {
+      "title": "OrderCancelled",
+      "type": "object",
+      "required": ["eventType", "orderId", "reason", "cancelledAt"],
+      "properties": {
+        "eventType": { "const": "OrderCancelled" },
+        "orderId": { "type": "string", "format": "uuid" },
+        "reason": { "type": "string" },
+        "cancelledAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  ]
+}

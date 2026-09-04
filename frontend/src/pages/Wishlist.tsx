@@ -4,6 +4,9 @@ import { useWishlist, type WishlistItem } from '../context/WishlistContext'
 import { useCart } from '../context/CartContext'
 import { API_BASE_URL } from '../constants'
 
+const formatPrice = (paise: number) =>
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+
 function resolveImage(image: string): string {
   return image?.startsWith('/images/') ? `${API_BASE_URL}${image}` : image
 }
@@ -55,7 +58,7 @@ function WishlistItemRow({ item, onRemove, onMoveToCart }: WishlistItemRowProps)
               {item.name}
             </Link>
             <p className="mt-1 text-2xl font-black text-slate-950">
-              ₹{item.price.toLocaleString('en-IN')}
+              {formatPrice(item.price)}
             </p>
           </div>
           <button
@@ -95,8 +98,10 @@ export default function Wishlist() {
   }
 
   const handleMoveToCart = (item: WishlistItem) => {
+    if (!item.sku) return
     addToCart({
       id: item.id,
+      sku: item.sku,
       name: item.name,
       price: item.price,
       image: item.image,
@@ -123,7 +128,7 @@ export default function Wishlist() {
               {items.length} {items.length === 1 ? 'item' : 'items'} ·
               {' '}
               <span className="font-semibold text-slate-700">
-                ₹{totalValue.toLocaleString('en-IN')}
+                {formatPrice(totalValue)}
               </span>
               {' '}
               total value

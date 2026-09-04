@@ -27,7 +27,15 @@ services:
   order-service:
     image: mayurb123/sstore:order-service
     replicas: 2
-    stripeSecretKey: replace-me
+  payment-service:
+    image: mayurb123/sstore:payment-service
+    replicas: 2
+    razorpayKeyId: replace-me
+    razorpayKeySecret: replace-me
+    razorpayWebhookSecret: replace-me
+  inventory-service:
+    image: mayurb123/sstore:inventory-service
+    replicas: 2
   api-gateway:
     image: mayurb123/sstore:api-gateway
     replicas: 2

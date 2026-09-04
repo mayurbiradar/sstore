@@ -7,6 +7,9 @@ import CartToolbar from './cart/CartToolbar'
 import CartItemRow from './cart/CartItemRow'
 import OrderSummary from './cart/OrderSummary'
 
+const formatPrice = (paise: number) =>
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+
 /** Returns the discount rate for a given promo code, or 0 if invalid. */
 function promoRate(code: string): number {
   const normalized = code.toLowerCase()
@@ -18,23 +21,28 @@ function promoRate(code: string): number {
 export default function Cart() {
   const { cart, removeFromCart, updateQuantity } = useCart()
   const navigate = useNavigate()
-  const [selectedItems, setSelectedItems] = useState<Set<number>>(
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(
     () => new Set(cart.map(item => item.id))
   )
   const [promoCode, setPromoCode] = useState('')
   const [discount, setDiscount] = useState(0)
 
-  const subtotal = cart
+  // Subtotal/total are kept in paise (smallest currency unit) until display.
+  const subtotalPaise = cart
     .filter(item => selectedItems.has(item.id))
     .reduce((total, item) => total + item.price * item.quantity, 0)
-  const tax = Math.max(0, Math.round((subtotal - discount) * 0.03))
-  const total = subtotal + tax - discount
+  // 3% GST is the store's pricing convention.
+  const taxPaise = Math.max(0, Math.round((subtotalPaise - discount) * 0.03))
+  const totalPaise = subtotalPaise + taxPaise - discount
+
+  // Free-shipping threshold is in paise (₹999).
+  const FREE_SHIPPING_PAISE = 99900
 
   if (!cart.length) {
     return <EmptyCart />
   }
 
-  const toggleItem = (id: number) =>
+  const toggleItem = (id: string) =>
     setSelectedItems(previous => {
       const next = new Set(previous)
       if (next.has(id)) next.delete(id)
@@ -54,7 +62,7 @@ export default function Cart() {
 
   const applyPromo = () => {
     const rate = promoRate(promoCode)
-    setDiscount(rate ? Math.round(subtotal * rate) : 0)
+    setDiscount(rate ? Math.round(subtotalPaise * rate) : 0)
   }
 
   const checkout = () => {
@@ -92,15 +100,17 @@ export default function Cart() {
           </section>
 
           <OrderSummary
-            subtotal={subtotal}
-            tax={tax}
+            subtotal={subtotalPaise}
+            tax={taxPaise}
             discount={discount}
-            total={total}
+            total={totalPaise}
             canCheckout={selectedItems.size > 0}
             promoCode={promoCode}
             onPromoCodeChange={setPromoCode}
             onApplyPromo={applyPromo}
             onCheckout={checkout}
+            formatPrice={formatPrice}
+            freeShippingPaise={FREE_SHIPPING_PAISE}
           />
         </div>
       </div>

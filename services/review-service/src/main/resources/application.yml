@@ -1,0 +1,103 @@
+server:
+  port: ${SERVER_PORT:8086}
+
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:review-service}
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/review_db}
+    username: ${SPRING_DATASOURCE_USERNAME:admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:admin}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.postgresql.Driver}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    show-sql: ${JPA_SHOW_SQL:false}
+    database-platform: ${JPA_DATABASE_PLATFORM:org.hibernate.dialect.PostgreSQLDialect}
+
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
+    clean-disabled: ${FLYWAY_CLEAN_DISABLED:false}
+    validate-on-migrate: true
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/sstore}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/sstore/protocol/openid-connect/certs}
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      retries: 5
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        delivery.timeout.ms: 120000
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: ${SPRING_KAFKA_CONSUMER_GROUP:review-service}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegateClass: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "com.sstore.*,java.util,java.lang"
+        spring.json.value.default.type: com.sstore.review.kafka.OrderDeliveredEvent
+        spring.json.use.type.headers: false
+    listener:
+      ack-mode: manual
+      missing-topics-fatal: false
+
+services:
+  order:
+    base-url: ${SERVICES_ORDER_BASE_URL:http://localhost:8083}
+
+topics:
+  reviews: ${TOPICS_REVIEWS:reviews}
+  orders: ${TOPICS_ORDERS:orders}
+
+outbox:
+  batch-size: ${OUTBOX_BATCH_SIZE:50}
+  relay-delay-ms: ${OUTBOX_RELAY_DELAY_MS:1000}
+  relay-timeout-ms: ${OUTBOX_RELAY_TIMEOUT_MS:5000}
+
+# All knobs below are configurable per-environment via env vars.
+review:
+  rating:
+    min: ${REVIEW_RATING_MIN:1}
+    max: ${REVIEW_RATING_MAX:5}
+  body:
+    min-length: ${REVIEW_BODY_MIN:10}
+    max-length: ${REVIEW_BODY_MAX:4000}
+  title:
+    min-length: ${REVIEW_TITLE_MIN:3}
+    max-length: ${REVIEW_TITLE_MAX:120}
+  moderation:
+    # AUTO_APPROVE   -> published instantly
+    # ALWAYS_PENDING -> requires admin approval
+    # ALWAYS_APPROVE -> skip the queue, even for low-rated reviews
+    policy: ${REVIEW_MODERATION_POLICY:AUTO_APPROVE}
+  require-purchase: ${REVIEW_REQUIRE_PURCHASE:true}
+  edit-window-days: ${REVIEW_EDIT_WINDOW_DAYS:30}
+  helpful-vote:
+    enabled: ${REVIEW_HELPFUL_VOTE_ENABLED:true}
+    require-login: ${REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+        show-details: always

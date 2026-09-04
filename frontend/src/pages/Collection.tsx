@@ -3,22 +3,11 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { getProducts } from '../api/productApi';
+import type { Product } from '../api/productApi';
 import { API_BASE_URL } from '../constants';
 import { useSearchParams } from 'react-router-dom';
 import { Search, LayoutGrid, List, Gem, Star, Check, ShoppingCart, Heart } from 'lucide-react';
 import { ProductCardSkeleton, Skeleton } from '../components/Skeleton';
-
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  image: string;
-  rating: number;
-  stock: number;
-  category?: string;
-  material?: string;
-  description?: string;
-}
 
 export default function Collection() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -30,7 +19,7 @@ export default function Collection() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
   const [sortBy, setSortBy] = useState('name');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [addedProductId, setAddedProductId] = useState<number | null>(null);
+  const [addedProductId, setAddedProductId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const { cart, addToCart, updateQuantity } = useCart();
 
@@ -56,11 +45,10 @@ export default function Collection() {
     setLoading(true);
     setError(false);
     try {
-      const res = await getProducts();
-      const data = res.data;
-      const productList = Array.isArray(data) ? data : data?.products || [];
+      const productList = await getProducts();
       setProducts(productList);
-      setPriceRange([0, Math.max(10000, ...productList.map((product: Product) => product.price))]);
+      const maxPriceInPaise = Math.max(1000000, ...productList.map((p: Product) => p.price));
+      setPriceRange([0, Math.ceil(maxPriceInPaise / 100)]);
       setFilteredProducts(productList);
     } catch (fetchError) {
       console.error('Error fetching products:', fetchError);
@@ -88,12 +76,12 @@ export default function Collection() {
 
     // Category filter
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(product => product.category === selectedCategory);
+      filtered = filtered.filter(product => product.category?.slug === selectedCategory || product.category?.name === selectedCategory);
     }
 
-    // Price filter
+    // Price filter — selected range is in rupees (₹), backend stores paise.
     filtered = filtered.filter(product =>
-      product.price >= priceRange[0] && product.price <= priceRange[1]
+      product.price / 100 >= priceRange[0] && product.price / 100 <= priceRange[1]
     );
 
     // Sort
@@ -104,7 +92,7 @@ export default function Collection() {
         case 'price-high':
           return b.price - a.price;
         case 'rating':
-          return b.rating - a.rating;
+          return (b.avgRating ?? 0) - (a.avgRating ?? 0);
         case 'name':
         default:
           return a.name.localeCompare(b.name);
@@ -118,6 +106,7 @@ export default function Collection() {
     if (product.stock === 0 || getProductQuantity(product.id) >= product.stock) return;
     addToCart({
       id: product.id,
+      sku: product.sku,
       name: product.name,
       price: product.price,
       image: product.image
@@ -126,11 +115,11 @@ export default function Collection() {
     window.setTimeout(() => setAddedProductId(null), 1400);
   };
 
-  const getProductQuantity = (productId: number) => {
+  const getProductQuantity = (productId: string) => {
     return cart.find(item => item.id === productId)?.quantity || 0;
   };
 
-  const categories = ['all', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
+  const categories = ['all', ...Array.from(new Set(products.map(p => p.category?.slug || p.category?.name).filter(Boolean) as string[]))];
 
   if (loading) {
     return (
@@ -374,8 +363,10 @@ interface ProductCardProps {
   onAddToCart: (product: Product) => void;
   added: boolean;
   quantity: number;
-  onUpdateQuantity: (id: number, quantity: number) => void;
+  onUpdateQuantity: (id: string, quantity: number) => void;
 }
+
+const formatPrice = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 
 function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdateQuantity }: ProductCardProps) {
   const { isInWishlist, toggleWishlist } = useWishlist();
@@ -389,6 +380,7 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
     event.stopPropagation();
     toggleWishlist({
       id: product.id,
+      sku: product.sku,
       name: product.name,
       price: product.price,
       image: product.image,
@@ -425,10 +417,13 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
                 <h3 className="text-xl font-bold text-gray-800 mb-2">{product.name}</h3>
                 <div className="flex items-center mb-2">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" strokeWidth={1.5} />
-                  <span className="text-gray-700 font-semibold">{product.rating}</span>
+                  <span className="text-gray-700 font-semibold">
+                    {(product.avgRating ?? 0).toFixed(1)}
+                    {product.reviewCount != null && product.reviewCount > 0 ? ` (${product.reviewCount})` : ''}
+                  </span>
                 </div>
                 <p className="text-2xl font-black text-slate-950">
-                  ₹{product.price.toLocaleString('en-IN')}
+                  {formatPrice(product.price)}
                 </p>
               </div>
               <Link
@@ -503,7 +498,7 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
           <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1">
             <div className="flex items-center">
               <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
-              <span className="ml-1 text-gray-800 font-semibold text-sm">{product.rating}</span>
+              <span className="ml-1 text-gray-800 font-semibold text-sm">{(product.avgRating ?? 0).toFixed(1)}</span>
             </div>
           </div>
           <button
@@ -531,7 +526,7 @@ function ProductCard({ product, viewMode, onAddToCart, added, quantity, onUpdate
 
         <div className="flex items-center justify-between mb-4">
           <span className="text-2xl font-black text-slate-950">
-            ₹{product.price.toLocaleString('en-IN')}
+            {formatPrice(product.price)}
           </span>
           <div className="text-sm text-gray-600">
             {product.stock > 0 ? (

@@ -3,37 +3,32 @@ import { Link } from 'react-router-dom'
 import { ShieldCheck, RotateCcw, Headphones, Star, Check, ShoppingCart, Heart } from 'lucide-react'
 import { getProducts } from '../api/productApi'
 import { API_BASE_URL } from '../constants'
+import { STORE } from '../constants/store'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 
-interface Product {
-  id: number
-  name: string
-  price: number
-  image: string
-  rating?: number
-  stock: number
-  category?: string
-}
+import type { Product } from '../api/productApi'
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [addedProductId, setAddedProductId] = useState<number | null>(null)
+  const [addedProductId, setAddedProductId] = useState<string | null>(null)
   const { addToCart } = useCart()
 
   useEffect(() => {
-    getProducts().then(({ data }) => {
-      const list = Array.isArray(data) ? data : data?.products || []
+    getProducts().then((list) => {
       setProducts(list.slice(0, 4))
     }).catch(() => setProducts([])).finally(() => setLoading(false))
   }, [])
 
   const addProduct = (product: Product) => {
-    addToCart({ id: product.id, name: product.name, price: product.price, image: product.image })
+    addToCart({ id: product.id, sku: product.sku, name: product.name, price: product.price, image: product.image })
     setAddedProductId(product.id)
     window.setTimeout(() => setAddedProductId(null), 1400)
   }
+
+  // Backend returns prices in the smallest currency unit (paise for INR).
+  const formatPrice = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 
   return (
     <main className="bg-[#f7f8fa] text-slate-900">
@@ -44,7 +39,7 @@ export default function Home() {
           <p className="mt-5 max-w-lg text-base leading-7 text-slate-500 sm:text-lg">Shop useful, beautiful products from one trusted place. Simple browsing, secure checkout, and delivery you can count on.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link to="/collection" className="rounded-xl bg-rose-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-rose-200 transition hover:bg-rose-700">Start shopping</Link>
-            <Link to="/about" className="rounded-xl border border-slate-300 bg-white px-6 py-3.5 font-bold text-slate-700 transition hover:border-rose-300 hover:text-rose-600">Why SStore?</Link>
+            <Link to="/about" className="rounded-xl border border-slate-300 bg-white px-6 py-3.5 font-bold text-slate-700 transition hover:border-rose-300 hover:text-rose-600">Why {STORE.name}?</Link>
           </div>
           <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-slate-500"><span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-rose-600" strokeWidth={2} /> Secure payments</span><span className="inline-flex items-center gap-1.5"><RotateCcw className="h-4 w-4 text-rose-600" strokeWidth={2} /> Easy returns</span><span className="inline-flex items-center gap-1.5"><Headphones className="h-4 w-4 text-rose-600" strokeWidth={2} /> Helpful support</span></div>
         </div>
@@ -61,20 +56,25 @@ export default function Home() {
       <section className="border-y border-slate-200 bg-white"><div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-6 text-sm sm:grid-cols-4 sm:px-6 lg:px-8"><div><b className="block text-slate-900">Curated for you</b><span className="text-slate-500">Quality picks, less scrolling</span></div><div><b className="block text-slate-900">Fast dispatch</b><span className="text-slate-500">Packed with care</span></div><div><b className="block text-slate-900">Secure checkout</b><span className="text-slate-500">Protected every step</span></div><div><b className="block text-slate-900">Real support</b><span className="text-slate-500">We are here to help</span></div></div></section>
 
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8"><div className="mb-7 flex items-end justify-between gap-4"><div><p className="text-sm font-bold uppercase tracking-[0.18em] text-rose-600">Fresh picks</p><h2 className="mt-1 text-3xl font-black tracking-tight">Trending now</h2></div><Link to="/collection" className="text-sm font-bold text-rose-600 hover:text-rose-700">View all products →</Link></div>
-        {loading ? <div className="grid grid-cols-2 gap-4 md:grid-cols-4">{[1, 2, 3, 4].map(item => <div key={item} className="h-80 animate-pulse rounded-2xl bg-slate-200" />)}</div> : products.length > 0 ? <div className="grid grid-cols-2 gap-4 md:grid-cols-4">{products.map(product => <ProductCard key={product.id} product={product} added={addedProductId === product.id} onAdd={() => addProduct(product)} />)}</div> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">New products are arriving soon. Browse the collection to see what is available.</div>}
+        {loading ? <div className="grid grid-cols-2 gap-4 md:grid-cols-4">{[1, 2, 3, 4].map(item => <div key={item} className="h-80 animate-pulse rounded-2xl bg-slate-200" />)}</div> : products.length > 0 ? <div className="grid grid-cols-2 gap-4 md:grid-cols-4">{products.map(product => <ProductCard key={product.id} product={product} added={addedProductId === product.id} onAdd={() => addProduct(product)} formatPrice={formatPrice} />)}</div> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">New products are arriving soon. Browse the collection to see what is available.</div>}
       </section>
     </main>
   )
 }
 
-function ProductCard({ product, added, onAdd }: { product: Product; added: boolean; onAdd: () => void }) {
+function ProductCard({ product, added, onAdd, formatPrice }: { product: Product; added: boolean; onAdd: () => void; formatPrice: (paise: number) => string }) {
   const imageUrl = product.image?.startsWith('/images/') ? `${API_BASE_URL}${product.image}` : product.image
   const { isInWishlist, toggleWishlist } = useWishlist()
   const savedForLater = isInWishlist(product.id)
   const handleToggleWishlist = (event: MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
-    toggleWishlist({ id: product.id, name: product.name, price: product.price, image: product.image })
+    toggleWishlist({ id: product.id, sku: product.sku, name: product.name, price: product.price, image: product.image })
   }
-  return <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-lg"><Link to={`/product/${product.id}`} className="block"><div className="relative aspect-square overflow-hidden bg-slate-100"><img src={imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />{product.category && <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">{product.category}</span>}{product.stock === 0 && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-600 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow">Out of stock</span>}<button type="button" onClick={handleToggleWishlist} aria-pressed={savedForLater} aria-label={savedForLater ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`} className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur transition ${savedForLater ? 'border-rose-500 bg-rose-500/95 text-white shadow' : 'border-white/40 bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-500'}`}><Heart className={`h-4 w-4 ${savedForLater ? 'fill-white' : ''}`} strokeWidth={2.25} /></button></div></Link><div className="p-4"><Link to={`/product/${product.id}`}><h3 className="line-clamp-2 min-h-12 font-bold text-slate-800 transition group-hover:text-rose-600">{product.name}</h3></Link><div className="mt-3 flex items-center justify-between gap-2"><span className="font-black text-slate-950">₹{product.price.toLocaleString('en-IN')}</span><span className="inline-flex items-center gap-1 text-xs text-amber-600"><Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" strokeWidth={1.5} /> {product.rating || 'New'}</span></div><button type="button" onClick={onAdd} disabled={product.stock === 0} className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${added ? 'bg-emerald-600' : 'bg-slate-950 hover:bg-rose-600'}`}>{product.stock === 0 ? 'Out of stock' : added ? <><Check className="h-4 w-4" strokeWidth={3} /> Added to cart</> : <><ShoppingCart className="h-4 w-4" strokeWidth={2.5} /> Add to cart</>}</button></div></article>
+  return <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-lg"><Link to={`/product/${product.id}`} className="block"><div className="relative aspect-square overflow-hidden bg-slate-100"><img src={imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />{product.category?.name && <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">{product.category.name}</span>}{product.stock === 0 && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-600 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow">Out of stock</span>}<button type="button" onClick={handleToggleWishlist} aria-pressed={savedForLater} aria-label={savedForLater ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`} className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur transition ${savedForLater ? 'border-rose-500 bg-rose-500/95 text-white shadow' : 'border-white/40 bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-500'}`}><Heart className={`h-4 w-4 ${savedForLater ? 'fill-white' : ''}`} strokeWidth={2.25} /></button></div></Link><div className="p-4"><Link to={`/product/${product.id}`}><h3 className="line-clamp-2 min-h-12 font-bold text-slate-800 transition group-hover:text-rose-600">{product.name}</h3></Link><div className="mt-3 flex items-center justify-between gap-2"><span className="font-black text-slate-950">{formatPrice(product.price)}</span><span className="inline-flex items-center gap-1 text-xs text-amber-600">
+              <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" strokeWidth={1.5} />
+              {product.avgRating != null && product.avgRating > 0
+                ? `${product.avgRating.toFixed(1)}${product.soldCount ? ` · ${product.soldCount.toLocaleString('en-IN')} sold` : ''}`
+                : 'New'}
+            </span></div><button type="button" onClick={onAdd} disabled={product.stock === 0} className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${added ? 'bg-emerald-600' : 'bg-slate-950 hover:bg-rose-600'}`}>{product.stock === 0 ? 'Out of stock' : added ? <><Check className="h-4 w-4" strokeWidth={3} /> Added to cart</> : <><ShoppingCart className="h-4 w-4" strokeWidth={2.5} /> Add to cart</>}</button></div></article>
 }

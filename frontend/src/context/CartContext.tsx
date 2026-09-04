@@ -2,45 +2,50 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import * as orderApi from '../api/orderApi'
+import type { Order } from '../api/orderApi'
 
+/**
+ * In-cart line item.
+ *
+ * `id` is the product UUID — backend product-service uses UUID primary keys
+ * (see services/product-service/.../domain/Product.java). Everything in the
+ * storefront is keyed by that string.
+ */
 export interface CartItem {
-  id: number
+  id: string
   name: string
+  /** Price in the smallest currency unit (paise). Divide by 100 for ₹. */
   price: number
   quantity: number
   image: string
+  /**
+   * Product SKU as registered with inventory-service. Required at checkout
+   * because order-service forwards `lines[].sku` to inventory-service to
+   * reserve stock. Without it, inventory returns "Unknown SKU" and the
+   * order-service propagates that as a 500.
+   */
+  sku: string
 }
 
-// Backend order response type
-export interface Order {
-  id: string;
-  items: any[];
-  totalAmount: number;
-  createdAt: string;
-  status: string;
-  [key: string]: any;
-}
-
-// Order payload type for creation
+/** Payload accepted by `addOrder` — keeps parity with the backend's Order entity. */
 export interface OrderPayload {
-  userId: string;
-  status: string;
-  totalAmount: number;
-  currency: string;
-  items: any[];
-  subtotal: number;
-  tax: number;
+  address: orderApi.Address
+  items: Array<Pick<orderApi.OrderItem, 'productId' | 'sku' | 'productName' | 'price' | 'quantity' | 'image'>>
+  /** `COD` or `ONLINE`. */
+  paymentMethod: 'COD' | 'ONLINE'
+  currency?: string
+  notes?: string
 }
 
 interface CartContextType {
-  cart: CartItem[];
-  addToCart: (product: Omit<CartItem, 'quantity'>) => void;
-  removeFromCart: (id: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
-  clearCart: () => void;
-  getCartTotal: () => number;
-  orders: Order[];
-  addOrder: (order: OrderPayload) => Promise<Order | null>;
+  cart: CartItem[]
+  addToCart: (product: Omit<CartItem, 'quantity'>) => void
+  removeFromCart: (id: string) => void
+  updateQuantity: (id: string, quantity: number) => void
+  clearCart: () => void
+  getCartTotal: () => number
+  orders: Order[]
+  addOrder: (order: OrderPayload) => Promise<Order | null>
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -49,7 +54,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const navigate = useNavigate()
-  // Removed orders API call on homepage load
 
   const goToCart = () => {
     navigate('/cart')
@@ -80,7 +84,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const removeFromCart = (id: number) => {
+  const removeFromCart = (id: string) => {
     let removed: CartItem | undefined
     setCart(prev => {
       const target = prev.find(item => item.id === id)
@@ -104,7 +108,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const updateQuantity = (id: number, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(id)
       return
@@ -127,8 +131,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addOrder = async (order: OrderPayload) => {
     const token = localStorage.getItem('accessToken') || '';
     const res = await orderApi.createOrder(order, token);
-    setOrders(prev => [res.data, ...prev]);
-    return res.data as Order;
+    setOrders(prev => [res, ...prev]);
+    return res;
   }
 
   return (

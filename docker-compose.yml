@@ -3,6 +3,42 @@ networks:
     driver: bridge
 services:
 
+  # ---------- Redpanda (Kafka-compatible, KRaft, no ZooKeeper) ----------
+  # Used for inter-service events (orders, payments, inventory). The same image
+  # is used in production via the Helm chart, so the wiring is identical locally
+  # and in the cluster.
+  redpanda:
+    image: redpandadata/redpanda:v24.3.7
+    container_name: redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --mode=dev-container
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      # Advertise the loopback address so JVMs running on the host
+      # (Spring Tool Suite, etc.) can resolve the coordinator. Other
+      # docker-compose services can still reach this container via the
+      # 'redpanda' service name and the bridged network; they don't need
+      # the advertised name because they share DNS with the broker.
+      - --advertise-kafka-addr=PLAINTEXT://127.0.0.1:9092
+    ports:
+      - "9092:9092"
+      - "9644:9644"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sstore-net
+
   # ---------- PostgreSQL ----------
   postgres:
     image: postgres:16-alpine
@@ -12,7 +48,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_MULTIPLE_DATABASES: auth_db,order_db,product_db
+      POSTGRES_MULTIPLE_DATABASES: auth_db,order_db,product_db,payment_db,inventory_db,review_db
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./services/postgres/init/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
@@ -55,6 +91,8 @@ services:
     environment:
       PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL}
       ORDER_SERVICE_URL: ${ORDER_SERVICE_URL}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL}
+      INVENTORY_SERVICE_URL: ${INVENTORY_SERVICE_URL}
       SERVER_PORT: 9090      # <-- gateway listens on 9090
       KEYCLOAK_URL: ${KEYCLOAK_URL}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM}
@@ -65,6 +103,9 @@ services:
     depends_on:
       - product-service
       - order-service
+      - payment-service
+      - inventory-service
+      - review-service
     ports:
       - "9090:9090"         # public entry point
     networks:
@@ -148,13 +189,107 @@ services:
       SERVER_PORT: 8083
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL}
-      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      INVENTORY_SERVICE_URL: ${INVENTORY_SERVICE_URL}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
     ports:
       - "8083:8083"
+    networks:
+      - sstore-net
+
+  # ---------- Payment Service ----------
+  payment-service:
+    image: mayurb123/sstore:payment-service
+    pull_policy: build
+    build: ./services/payment-service
+    container_name: payment-service
+    restart: on-failure
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_PORT: 8084
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
+      RAZORPAY_CURRENCY: ${RAZORPAY_CURRENCY:-INR}
+      RAZORPAY_COMPANY_NAME: ${RAZORPAY_COMPANY_NAME:-SStore}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    networks:
+      - sstore-net
+
+  # ---------- Inventory Service ----------
+  inventory-service:
+    image: mayurb123/sstore:inventory-service
+    pull_policy: build
+    build: ./services/inventory-service
+    container_name: inventory-service
+    restart: on-failure
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_PORT: 8085
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    networks:
+      - sstore-net
+
+  # ---------- Review Service ----------
+  review-service:
+    image: mayurb123/sstore:review-service
+    pull_policy: build
+    build: ./services/review-service
+    container_name: review-service
+    restart: on-failure
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/review_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_PORT: 8086
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      # Review tuning knobs (mirror these in helm values for prod parity)
+      REVIEW_MODERATION_POLICY: ${REVIEW_MODERATION_POLICY:-AUTO_APPROVE}
+      REVIEW_REQUIRE_PURCHASE: ${REVIEW_REQUIRE_PURCHASE:-true}
+      REVIEW_EDIT_WINDOW_DAYS: ${REVIEW_EDIT_WINDOW_DAYS:-30}
+      REVIEW_HELPFUL_VOTE_ENABLED: ${REVIEW_HELPFUL_VOTE_ENABLED:-true}
+      REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN: ${REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN:-true}
+      REVIEW_RATING_MIN: ${REVIEW_RATING_MIN:-1}
+      REVIEW_RATING_MAX: ${REVIEW_RATING_MAX:-5}
+      REVIEW_TITLE_MIN: ${REVIEW_TITLE_MIN:-3}
+      REVIEW_TITLE_MAX: ${REVIEW_TITLE_MAX:-120}
+      REVIEW_BODY_MIN: ${REVIEW_BODY_MIN:-10}
+      REVIEW_BODY_MAX: ${REVIEW_BODY_MAX:-4000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
     networks:
       - sstore-net
 

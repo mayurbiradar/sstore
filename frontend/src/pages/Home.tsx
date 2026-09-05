@@ -54,11 +54,22 @@ export default function Home() {
           <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-slate-500"><span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-rose-600" strokeWidth={2} /> Secure payments</span><span className="inline-flex items-center gap-1.5"><RotateCcw className="h-4 w-4 text-rose-600" strokeWidth={2} /> Easy returns</span><span className="inline-flex items-center gap-1.5"><Headphones className="h-4 w-4 text-rose-600" strokeWidth={2} /> Helpful support</span></div>
         </div>
         <div className="relative min-h-72 overflow-hidden rounded-3xl bg-slate-950 p-7 text-white shadow-xl sm:min-h-96 sm:p-10">
-          <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-rose-500/80 blur-3xl" />
-          <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-amber-300/40 blur-3xl" />
-          <div className="relative flex h-full flex-col justify-between">
-            <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-white/80">New season edit</span>
-            <div><p className="text-2xl font-bold sm:text-4xl">Small upgrades.</p><p className="mt-1 text-2xl font-bold text-amber-300 sm:text-4xl">Big difference.</p><Link to="/collection" className="mt-6 inline-block text-sm font-bold underline decoration-rose-400 underline-offset-4">Explore the collection →</Link></div>
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-rose-500/80 blur-3xl" />
+            <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-amber-300/40 blur-3xl" />
+            <span className="sparkle sparkle-1" />
+            <span className="sparkle sparkle-2" />
+            <span className="sparkle sparkle-3" />
+            <span className="sparkle sparkle-4" />
+            <span className="sparkle sparkle-5" />
+          </div>
+          <div className="relative z-10 flex h-full flex-col justify-between">
+            <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-white/80 animate-fade-in-up">New season edit</span>
+            <div className="animate-fade-in-up">
+              <p className="text-2xl font-bold sm:text-4xl">Small upgrades.</p>
+              <p className="mt-1 text-2xl font-bold text-amber-300 sm:text-4xl">Big difference.</p>
+              <Link to="/collection" className="mt-6 inline-block text-sm font-bold underline decoration-rose-400 underline-offset-4">Explore the collection →</Link>
+            </div>
           </div>
         </div>
       </section>

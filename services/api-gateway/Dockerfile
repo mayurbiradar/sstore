@@ -1,12 +1,13 @@
 FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 
-COPY .mvn/ .mvn
-COPY pom.xml .
-COPY mvnw .
+# dockerContext is the repo root, so paths must be repo-relative.
+COPY services/api-gateway/.mvn/ .mvn
+COPY services/api-gateway/pom.xml .
+COPY services/api-gateway/mvnw .
 RUN ./mvnw -B dependency:go-offline
 
-COPY src ./src
+COPY services/api-gateway/src ./src
 RUN ./mvnw -B package -DskipTests
 
 FROM eclipse-temurin:21-jre

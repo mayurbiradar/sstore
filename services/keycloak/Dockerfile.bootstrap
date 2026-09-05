@@ -1,0 +1,13 @@
+FROM alpine:3.20
+
+# Minimal image with just bash, curl, and the bootstrap script.
+# Runs once after Keycloak is reachable, configures the realm/client, then exits.
+# dockerContext is the repo root, so use the full repo-relative path.
+
+RUN apk add --no-cache bash curl
+
+COPY services/keycloak/bootstrap.sh /tmp/bootstrap.sh
+RUN chmod +x /tmp/bootstrap.sh
+
+# Use the sh form to invoke the script explicitly — avoids any executable-bit issues.
+CMD ["sh", "/tmp/bootstrap.sh"]

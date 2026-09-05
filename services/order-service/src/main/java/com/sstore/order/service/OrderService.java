@@ -60,6 +60,14 @@ public class OrderService {
             item.setOrder(order);
             if (item.getImage() == null) item.setImage("");
         }
+        // Total = subtotal (sum of price*qty, paise) + 3% GST, all in paise.
+        // Without this, totalAmount stays at the default 0L and the
+        // order-success page renders "₹0".
+        long subtotalPaise = order.getItems().stream()
+                .mapToLong(it -> (long) it.getPrice() * it.getQuantity())
+                .sum();
+        long totalPaise = subtotalPaise + Math.round(subtotalPaise * 0.03);
+        order.setTotalAmount(totalPaise);
         Order saved = orderRepository.save(order);
 
         // Synchronous stock reservation — gives the user immediate feedback

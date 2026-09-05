@@ -50,7 +50,11 @@ spring:
       properties:
         spring.deserializer.value.delegateClass: org.springframework.kafka.support.serializer.JsonDeserializer
         spring.json.trusted.packages: "com.sstore.*,java.util,java.lang"
-        spring.json.value.default.type: com.sstore.review.kafka.OrderDeliveredEvent
+        # The default type is set programmatically in
+        # KafkaListenerFactoryConfig#errorTolerantJsonDeserializer to Map.class
+        # so the heterogeneous event shapes on the shared `orders` topic
+        # (InventoryReserved, OrderCreated, OrderConfirmed/Packed/Shipped/
+        # Delivered, …) all deserialize successfully. Do not set this here.
         spring.json.use.type.headers: false
     listener:
       ack-mode: manual

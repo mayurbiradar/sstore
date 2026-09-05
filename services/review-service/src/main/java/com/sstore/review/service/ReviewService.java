@@ -77,6 +77,8 @@ public class ReviewService {
             .rating(cmd.rating().shortValue())
             .title(cmd.title().trim())
             .body(cmd.body().trim())
+            .reviewerFirstName(emptyToNull(cmd.reviewerFirstName()))
+            .reviewerLastName(emptyToNull(cmd.reviewerLastName()))
             .status(initial)
             .verifiedPurchase(verified)
             .build();
@@ -178,6 +180,10 @@ public class ReviewService {
         validateNew(cmd);
         boolean wasApproved = r.getStatus() == Status.APPROVED;
         r.setRating(cmd.rating().shortValue());
+        // Keep names fresh in case the user updated their profile since the
+        // original submit; the authoritative source is always the current JWT.
+        r.setReviewerFirstName(emptyToNull(cmd.reviewerFirstName()));
+        r.setReviewerLastName(emptyToNull(cmd.reviewerLastName()));
         r.setTitle(cmd.title().trim());
         r.setBody(cmd.body().trim());
         r.setEditCount(r.getEditCount() + 1);
@@ -326,12 +332,20 @@ public class ReviewService {
     }
 
     /** Command object so the controller stays thin. */
+    private static String emptyToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /** Command object so the controller stays thin. */
     public record SubmitCommand(
         UUID productId,
         String userId,
         UUID orderId,
         Integer rating,
         String title,
-        String body
+        String body,
+        /** First/last name captured from the user's JWT at submit time. */
+        String reviewerFirstName,
+        String reviewerLastName
     ) {}
 }

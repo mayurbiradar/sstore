@@ -74,9 +74,14 @@ public class KafkaListenerFactoryConfig {
      * {@code InvalidDefinitionException: Java 8 date/time type \`java.time.Instant\`
      * not supported by default} on every record.
      *
-     * <p>Spring Kafka 4.x replaced the legacy {@code setValueDefaultType(String)}
-     * setter with constructor-based type binding — we now pass the target
-     * {@code Class} directly to the constructor.</p>
+     * <p>The {@code orders} topic is shared across multiple event types
+     * ({@code InventoryReserved}, {@code OrderCreated}, {@code OrderConfirmed},
+     * {@code OrderPacked}, {@code OrderShipped}, {@code OrderDelivered}, …)
+     * that have different field shapes. Binding every message to a single
+     * typed record fails for off-shape events. We therefore use
+     * {@code Map.class} as the default target type so every payload lands
+     * as a generic {@code Map}, and let the listener dispatch on
+     * {@code eventType}.</p>
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static JsonDeserializer<Object> errorTolerantJsonDeserializer() {
@@ -91,8 +96,10 @@ public class KafkaListenerFactoryConfig {
 
         // Spring Kafka 4.x: pass Class + ObjectMapper to the constructor
         // instead of using the removed setValueDefaultType(String) setter.
+        // Default to Map.class so heterogeneous events on the same topic all
+        // deserialize successfully.
         return new JsonDeserializer<>(
-            (Class) com.sstore.review.kafka.OrderDeliveredEvent.class,
+            (Class) java.util.Map.class,
             mapper
         );
     }

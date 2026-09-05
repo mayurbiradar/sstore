@@ -71,27 +71,6 @@ CREATE TABLE IF NOT EXISTS reservation_lines (
 CREATE INDEX IF NOT EXISTS idx_reservation_lines_product ON reservation_lines(product_id);
 
 -- ---------------------------------------------------------------------------
--- Stock movements (audit trail)
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS stock_movements (
-    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    product_id      uuid NOT NULL,
-    sku             text NOT NULL,
-    delta_on_hand   integer NOT NULL DEFAULT 0,        -- +/- change to on_hand
-    delta_reserved  integer NOT NULL DEFAULT 0,        -- +/- change to reserved
-    reason          text NOT NULL                      -- TOPUP|RESERVE|COMMIT|RELEASE|EXPIRE|ADJUST
-        CHECK (reason IN ('TOPUP','RESERVE','COMMIT','RELEASE','EXPIRE','ADJUST')),
-    reference_type  text,                              -- ORDER|RESERVATION|MANUAL
-    reference_id    text,                              -- order_id, reservation_id, etc.
-    actor           text,                              -- user sub or "system"
-    created_at      timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_stock_movements_reason  ON stock_movements(reason);
-CREATE INDEX IF NOT EXISTS idx_stock_movements_ref     ON stock_movements(reference_type, reference_id);
-
--- ---------------------------------------------------------------------------
 -- Transactional outbox
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS event_outbox (

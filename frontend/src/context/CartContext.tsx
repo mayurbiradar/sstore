@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import * as orderApi from '../api/orderApi'
@@ -48,12 +48,59 @@ interface CartContextType {
   addOrder: (order: OrderPayload) => Promise<Order | null>
 }
 
+const STORAGE_KEY = 'sstore_cart_v1'
+
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
+function readStorage(): CartItem[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (item: unknown): item is CartItem =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as CartItem).id === 'string' &&
+        typeof (item as CartItem).name === 'string' &&
+        typeof (item as CartItem).price === 'number' &&
+        typeof (item as CartItem).quantity === 'number' &&
+        typeof (item as CartItem).image === 'string' &&
+        typeof (item as CartItem).sku === 'string',
+    )
+  } catch {
+    return []
+  }
+}
+
+function writeStorage(items: CartItem[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+  } catch {
+    // Ignore quota / privacy-mode errors — cart is best-effort.
+  }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [cart, setCart] = useState<CartItem[]>(() => readStorage())
   const [orders, setOrders] = useState<Order[]>([])
   const navigate = useNavigate()
+
+  useEffect(() => {
+    writeStorage(cart)
+  }, [cart])
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) return
+      setCart(readStorage())
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   const goToCart = () => {
     navigate('/cart')

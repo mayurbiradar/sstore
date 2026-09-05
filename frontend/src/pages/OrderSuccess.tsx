@@ -74,7 +74,17 @@ export default function OrderSuccess() {
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <h2 className="font-black text-slate-950">What happens next?</h2>
-          <div className="mt-4 grid gap-4 text-sm text-slate-500 sm:grid-cols-3"><Detail label="01 · Confirmed" value="Your order has been received." /><Detail label="02 · Packed" value="We’ll prepare your items with care." /><Detail label="03 · Delivered" value="Pay cash when your order arrives." /></div>
+          <div className="mt-4 grid gap-4 text-sm text-slate-500 sm:grid-cols-3">
+            <Detail label="01 · Confirmed" value="Your order has been received." />
+            <Detail
+              label="02 · Packed"
+              value="We’ll pack your items with care."
+            />
+            <Detail
+              label="03 · Delivered"
+              value={paidOnline ? 'Your order is on its way to you.' : 'Pay cash when your order arrives.'}
+            />
+          </div>
         </section>
 
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link to="/orders" className="rounded-xl bg-rose-600 px-6 py-3 text-center text-sm font-black text-white transition hover:bg-rose-700">View my orders</Link><Link to="/collection" className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-center text-sm font-bold text-slate-700 transition hover:border-rose-300 hover:text-rose-600">Continue shopping</Link></div>

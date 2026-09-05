@@ -63,6 +63,20 @@
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
         </dependency>
+        <!--
+            Required so the default JsonDeserializer ObjectMapper (used by our
+            Kafka consumer) can decode java.time.Instant fields in events such
+            as ReviewApproved.occurredAt and OrderCreated.createdAt. Without
+            this, deserialization fails with:
+              "Java 8 date/time type java.time.Instant not supported by default"
+            Jackson auto-registers JavaTimeModule via META-INF/services when
+            this artifact is on the classpath, so no ObjectMapper bean override
+            is needed.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
         <dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-flyway</artifactId>

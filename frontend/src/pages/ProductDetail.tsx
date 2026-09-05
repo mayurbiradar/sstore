@@ -12,6 +12,7 @@ import {
   voteHelpful,
   type Review,
 } from '../api/reviewApi';
+import { getMyOrders, type Order } from '../api/orderApi';
 import { API_BASE_URL } from '../constants';
 import ImageZoom from '../components/ImageZoom';
 import StarRating from '../components/StarRating';
@@ -32,16 +33,42 @@ export default function ProductDetail() {
   const [reviewsTotal, setReviewsTotal] = useState(0);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   // ---- write-a-review form state ----
   const [showForm, setShowForm] = useState(false);
   const [formRating, setFormRating] = useState(0);
   const [formTitle, setFormTitle] = useState('');
   const [formBody, setFormBody] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  // ---- review-eligibility state ----
+  // `purchasedThisProduct` is true once we confirm the signed-in user has a
+  // DELIVERED order containing this product. We only fetch orders when the
+  // user is logged in.
+  const [purchasedThisProduct, setPurchasedThisProduct] = useState(false);
+  const [purchaseCheckDone, setPurchaseCheckDone] = useState(false);
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { user } = useUser();
+
+  // True when the current user has already submitted a review for this
+  // product (in any status — PENDING / APPROVED / REJECTED). Cheap to derive
+  // from the reviews we already loaded; works because /api/reviews returns
+  // all statuses in the list response (only the storefront filters).
+  const alreadyReviewed = Boolean(
+    user?.id && reviews.some((r) => r.userId === user.id),
+  );
+
+  // Derived eligibility — true only when the user can actually write a review.
+  const canReview = Boolean(user && purchasedThisProduct && !alreadyReviewed);
+  const reviewBlockReason = !user
+    ? 'Sign in to write a review'
+    : !purchaseCheckDone
+    ? 'Checking purchase history…'
+    : alreadyReviewed
+    ? 'You have already reviewed this product'
+    : !purchasedThisProduct
+    ? 'Only customers who purchased and received this product can review it'
+    : '';
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -91,6 +118,45 @@ export default function ProductDetail() {
       cancelled = true;
     };
   }, [productId]);
+
+  // ---- purchase verification for review eligibility ----
+  // A user can review a product only after their order containing it has been
+  // DELIVERED. We pull the user's own orders and check for a matching line.
+  // This runs whenever the signed-in user or product changes.
+  useEffect(() => {
+    if (!user?.id || !productId || !product?.id) {
+      setPurchasedThisProduct(false);
+      setPurchaseCheckDone(Boolean(user)); // done = true when logged out (no check needed)
+      return;
+    }
+    let cancelled = false;
+    setPurchaseCheckDone(false);
+    const token = localStorage.getItem('accessToken') || undefined;
+    getMyOrders(token)
+      .then((orders: Order[]) => {
+        if (cancelled) return;
+        const targetProductId = String(product.id);
+        const eligible = orders.some((o) =>
+          (o.status ?? '').toUpperCase() === 'DELIVERED' &&
+          Array.isArray(o.items) &&
+          o.items.some((it) => String(it.productId) === targetProductId),
+        );
+        setPurchasedThisProduct(eligible);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Failed to load orders for review eligibility:', err);
+        // Don't punish the user — fall back to "not eligible" so the button
+        // stays disabled but we don't leak error info into the UI.
+        setPurchasedThisProduct(false);
+      })
+      .finally(() => {
+        if (!cancelled) setPurchaseCheckDone(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, productId, product?.id]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -347,8 +413,20 @@ export default function ProductDetail() {
                   )}
                   <div>
                     <span className="text-gray-600 text-sm">Stock:</span>
-                    <p className={`font-semibold ${product.stock > 5 ? 'text-green-600' : 'text-red-600'}`}>
-                      {product.stock > 0 ? `${product.stock} available` : 'Out of stock'}
+                    <p
+                      className={`font-semibold ${
+                        product.stock === 0
+                          ? 'text-red-600'
+                          : product.stock <= 5
+                          ? 'text-amber-600'
+                          : 'text-green-600'
+                      }`}
+                    >
+                      {product.stock === 0
+                        ? 'Out of stock'
+                        : product.stock <= 5
+                        ? `Only ${product.stock} left`
+                        : `${product.stock} available`}
                     </p>
                   </div>
                 </div>
@@ -487,13 +565,18 @@ export default function ProductDetail() {
             <button
               type="button"
               onClick={() => setShowForm((s) => !s)}
-              disabled={!user}
-              title={user ? 'Write a review' : 'Sign in to write a review'}
+              disabled={!canReview}
+              title={canReview ? 'Write a review' : reviewBlockReason}
+              aria-disabled={!canReview}
               className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-3 font-bold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               <Send className="h-4 w-4" strokeWidth={2.5} />
               {showForm ? 'Close' : 'Write a review'}
             </button>
+            {/* Subtle helper text under the disabled button so users know why. */}
+            {!canReview && reviewBlockReason && (
+              <p className="mt-2 text-xs text-slate-500 sm:text-right">{reviewBlockReason}</p>
+            )}
           </div>
 
           {/* Write-a-review form */}
@@ -600,7 +683,19 @@ export default function ProductDetail() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {reviews.map((review) => {
-                const initials = (review.userId ?? 'A').slice(0, 1).toUpperCase();
+                // Display name: prefer the captured first/last from Keycloak.
+                // Falls back to "Customer · <id prefix>" for legacy reviews.
+                const first = (review.reviewerFirstName ?? '').trim();
+                const last = (review.reviewerLastName ?? '').trim();
+                let displayName: string;
+                let initials: string;
+                if (first || last) {
+                    displayName = last ? `${first} ${last.charAt(0).toUpperCase()}.` : first;
+                    initials = (first.charAt(0) || (review.userId ?? 'A').charAt(0)).toUpperCase();
+                } else {
+                    displayName = `Customer · ${(review.userId ?? '').slice(0, 6)}`;
+                    initials = (review.userId ?? 'A').slice(0, 1).toUpperCase();
+                }
                 return (
                   <article
                     key={review.id}
@@ -612,7 +707,7 @@ export default function ProductDetail() {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-800">
-                          Customer · {review.userId.slice(0, 6)}
+                          {displayName}
                         </p>
                         <div className="flex items-center gap-2">
                           <StarRating

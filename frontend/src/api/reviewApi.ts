@@ -18,6 +18,10 @@ export interface Review {
   verifiedPurchase: boolean;
   helpfulCount: number;
   unhelpfulCount: number;
+  /** Reviewer's first name (Keycloak given_name) — null on pre-V2 reviews. */
+  reviewerFirstName?: string | null;
+  /** Reviewer's last name (Keycloak family_name) — null on pre-V2 reviews. */
+  reviewerLastName?: string | null;
   rejectionReason?: string | null;
   moderatedBy?: string | null;
   moderatedAt?: string | null;

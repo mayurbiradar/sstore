@@ -14,6 +14,11 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties.AckMode;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 /**
  * Spring Boot 4 / Spring Kafka 4 no longer auto-register the default
@@ -22,11 +27,7 @@ import org.springframework.kafka.support.serializer.JsonDeserializer;
  *
  * <p>Bootstrap details ({@code spring.kafka.bootstrap-servers}) are bound
  * directly into {@link KafkaClientProperties} so this config doesn't depend
- * on Spring Boot autoconfigure being on the classpath. The deserializer
- * stack is identical to what was previously configured in
- * {@code application.yml}: ErrorHandlingDeserializer wrapping
- * String/Json deserializers, with a JsonDeserializer default type so we can
- * decode heterogeneous event payloads off the same topic.
+ * on Spring Boot autoconfigure being on the classpath.
  */
 @Configuration
 public class KafkaConfig {
@@ -45,15 +46,44 @@ public class KafkaConfig {
         cfg.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, props.getConsumer().getAutoOffsetReset());
         cfg.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
                 props.getConsumer().getEnableAutoCommit());
+        // Wrap the inner deserialisers in ErrorHandlingDeserializer so a
+        // single bad record doesn't poison the consumer; the actual type
+        // binding (Class + ObjectMapper) lives on the deserialiser instance
+        // returned by mapJsonDeserializer() below.
         cfg.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         cfg.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         cfg.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class.getName());
         cfg.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
-        cfg.put(JsonDeserializer.TRUSTED_PACKAGES, "com.sstore.*,java.util,java.lang");
-        cfg.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        cfg.put(JsonDeserializer.VALUE_DEFAULT_TYPE,
-                "com.sstore.product.kafka.ReviewApprovedEvent");
-        return new DefaultKafkaConsumerFactory<>(cfg);
+        return new DefaultKafkaConsumerFactory<>(cfg, new StringDeserializer(), mapJsonDeserializer());
+    }
+
+    /**
+     * Build a {@link JsonDeserializer} backed by a Jackson 2 {@link ObjectMapper}
+     * that knows how to read {@link java.time.Instant} (Java 8 date/time types).
+     * Without the {@link JavaTimeModule} the deserialiser throws on every event
+     * whose payload carries an {@code Instant} field.
+     *
+     * <p>The {@code orders} topic is shared across multiple event types
+     * ({@code OrderCreated}, {@code InventoryReserved},
+     * …) with different field shapes. Binding every message to a single typed
+     * record silently coerces off-shape payloads into that record, dropping
+     * fields and breaking conversion into {@code Map<String,Object>} on the
+     * listener side. We therefore default to {@code Map.class} so heterogeneous
+     * events all deserialize into a generic map, and let the listener dispatch
+     * on {@code eventType}.</p>
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static JsonDeserializer<Object> mapJsonDeserializer() {
+        ObjectMapper mapper = JsonMapper.builder()
+                .addModule(new JavaTimeModule())
+                .configure(MapperFeature.REQUIRE_HANDLERS_FOR_JAVA8_TIMES, false)
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .build();
+        mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        // Spring Kafka 4.x: pass Class + ObjectMapper to the constructor
+        // instead of using the removed setValueDefaultType(String) setter.
+        return new JsonDeserializer<>((Class) Map.class, mapper);
     }
 
     @Bean

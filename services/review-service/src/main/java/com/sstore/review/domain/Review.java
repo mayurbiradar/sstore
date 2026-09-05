@@ -38,6 +38,17 @@ public class Review {
     @Column(name = "user_id", nullable = false)
     private String userId;
 
+    /**
+     * Display name captured from Keycloak claims at submission time.
+     * Nullable: existing rows pre-V2 have no name; old reviews fall back
+     * to a generic "Customer" label until the author posts again.
+     */
+    @Column(name = "reviewer_first_name")
+    private String reviewerFirstName;
+
+    @Column(name = "reviewer_last_name")
+    private String reviewerLastName;
+
     /** The order that authorised this review (null when require-purchase=false). */
     @Column(name = "order_id")
     private UUID orderId;

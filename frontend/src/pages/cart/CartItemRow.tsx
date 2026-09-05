@@ -90,7 +90,7 @@ export default function CartItemRow({
             </button>
           </div>
           <p className="font-black text-slate-950">
-            ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+            {formatPrice(item.price * item.quantity)}
           </p>
         </div>
       </div>

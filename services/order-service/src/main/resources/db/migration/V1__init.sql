@@ -76,17 +76,6 @@ CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders(payment_status);
 CREATE INDEX IF NOT EXISTS idx_orders_placed         ON orders(placed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_address        ON orders(address_id);
 
--- Idempotency: if a client retries POST /api/orders with the same key we
--- don't want a duplicate. The client supplies `Idempotency-Key` header.
-CREATE TABLE IF NOT EXISTS order_idempotency_keys (
-    key             text PRIMARY KEY,
-    user_id         text NOT NULL,
-    order_id        uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    created_at      timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_order_idempotency_user ON order_idempotency_keys(user_id);
-
 -- ---------------------------------------------------------------------------
 -- Order items (snapshot at purchase time)
 -- ---------------------------------------------------------------------------

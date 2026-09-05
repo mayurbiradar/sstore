@@ -7,6 +7,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -62,9 +64,11 @@ public class ReviewController {
 
     @PostMapping
     public ResponseEntity<Review> submit(@Valid @RequestBody SubmitRequest body, Authentication auth) {
+        String[] names = namesFromJwt(auth);
         SubmitCommand cmd = new SubmitCommand(
             body.productId(), auth.getName(), body.orderId(),
-            body.rating(), body.title(), body.body()
+            body.rating(), body.title(), body.body(),
+            names[0], names[1]
         );
         Review saved = reviewService.submit(cmd);
         return ResponseEntity.created(URI.create("/api/reviews/" + saved.getId())).body(saved);
@@ -72,9 +76,11 @@ public class ReviewController {
 
     @PatchMapping("/{id}")
     public Review edit(@PathVariable UUID id, @Valid @RequestBody SubmitRequest body, Authentication auth) {
+        String[] names = namesFromJwt(auth);
         SubmitCommand cmd = new SubmitCommand(
             body.productId(), auth.getName(), body.orderId(),
-            body.rating(), body.title(), body.body()
+            body.rating(), body.title(), body.body(),
+            names[0], names[1]
         );
         return reviewService.edit(id, auth.getName(), cmd);
     }
@@ -111,6 +117,25 @@ public class ReviewController {
                          @RequestParam("reason") String reason,
                          Authentication auth) {
         return reviewService.reject(id, auth.getName(), reason);
+    }
+
+    // ---- helpers -----------------------------------------------------------
+
+    /**
+     * Read the user's display name from Keycloak's standard claims
+     * ({@code given_name}, {@code family_name}). Falls back to {@code null}s
+     * for non-JWT authentications (e.g. service-to-service admin calls).
+     * Returns a 2-element array: {@code [firstName, lastName]}.
+     */
+    private static String[] namesFromJwt(Authentication auth) {
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            Jwt jwt = jwtAuth.getToken();
+            String first = jwt.getClaimAsString("given_name");
+            String last  = jwt.getClaimAsString("family_name");
+            if (first == null) first = jwt.getClaimAsString("name");
+            return new String[] { first, last };
+        }
+        return new String[] { null, null };
     }
 
     // ---- DTO ---------------------------------------------------------------

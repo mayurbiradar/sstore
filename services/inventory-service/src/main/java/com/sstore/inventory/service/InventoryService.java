@@ -181,6 +181,7 @@ public class InventoryService {
         }
         r.setStatus(ReservationStatus.RELEASED.name());
         reservationRepository.save(r);
+        emitStockEvent(r, "InventoryReleased", "RELEASED", reason);
         log.info("Released reservation for order {} ({})", orderId, reason);
     }
 
@@ -198,7 +199,29 @@ public class InventoryService {
             }
             r.setStatus(ReservationStatus.EXPIRED.name());
             reservationRepository.save(r);
+            emitStockEvent(r, "InventoryExpired", "EXPIRED", "TTL");
         }
         return expired.size();
+    }
+
+    /**
+     * Single emit point for reservation lifecycle events consumed by
+     * product-service to mirror available stock on the storefront. Carries
+     * reservationId so consumers can dedupe across redeliveries.
+     */
+    private void emitStockEvent(Reservation r, String eventType, String status, String reason) {
+        eventPublisher.enqueue(ordersTopic, r.getOrderId().toString(), eventType, Map.of(
+                "eventType", eventType,
+                "orderId", r.getOrderId().toString(),
+                "reservationId", r.getId().toString(),
+                "userId", r.getUserId(),
+                "status", status,
+                "reason", reason,
+                "lines", r.getLines().stream().map(l -> Map.of(
+                        "sku", l.getSku(),
+                        "productId", l.getProductId().toString(),
+                        "quantity", l.getQuantity())).toList(),
+                "occurredAt", Instant.now().toString()
+        ));
     }
 }

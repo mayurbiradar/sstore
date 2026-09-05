@@ -8,10 +8,6 @@ KEYCLOAK_CLIENT_ID="${KEYCLOAK_CLIENT_ID:-sstore-frontend}"
 ADMIN_USERNAME="${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}"
 
-# Comma-separated list of allowed frontend origins. Override with
-# ALLOWED_REDIRECT_ORIGINS="https://app.vercel.app,https://app-staging.vercel.app".
-ALLOWED_REDIRECT_ORIGINS="${ALLOWED_REDIRECT_ORIGINS:-http://localhost,http://localhost:5173,http://localhost:4173}"
-
 printf 'Waiting for Keycloak...\n'
 until curl -fsS "${KEYCLOAK_URL}/realms/master/.well-known/openid-configuration" >/dev/null; do
     sleep 5
@@ -46,22 +42,7 @@ else
         -d "$REALM_PAYLOAD" >/dev/null
 fi
 
-# Build redirect URI / web origin arrays dynamically from ALLOWED_REDIRECT_ORIGINS
-REDIRECT_JSON="["
-WEBORIGIN_JSON="["
-first=1
-for origin in $(echo "$ALLOWED_REDIRECT_ORIGINS" | tr ',' ' '); do
-    origin="$(echo "$origin" | xargs)"  # trim
-    [ -z "$origin" ] && continue
-    if [ $first -eq 1 ]; then first=0; else REDIRECT_JSON="${REDIRECT_JSON},"; WEBORIGIN_JSON="${WEBORIGIN_JSON},"; fi
-    REDIRECT_JSON="${REDIRECT_JSON}\"${origin}\",\"${origin}/*\""
-    WEBORIGIN_JSON="${WEBORIGIN_JSON}\"${origin}\""
-done
-REDIRECT_JSON="${REDIRECT_JSON}]"
-WEBORIGIN_JSON="${WEBORIGIN_JSON}]"
-
-CLIENT_PAYLOAD="{\"clientId\":\"${KEYCLOAK_CLIENT_ID}\",\"enabled\":true,\"publicClient\":true,\"redirectUris\":${REDIRECT_JSON},\"webOrigins\":${WEBORIGIN_JSON}}"
-
+CLIENT_PAYLOAD='{"clientId":"sstore-frontend","enabled":true,"publicClient":true,"redirectUris":["http://localhost","http://localhost/*"],"webOrigins":["http://localhost"]}'
 CLIENT_ID="$(curl -fsS \
     -H "Authorization: Bearer ${TOKEN}" \
     "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/clients?clientId=${KEYCLOAK_CLIENT_ID}" \
@@ -80,4 +61,3 @@ else
 fi
 
 printf 'Keycloak realm and frontend client are ready.\n'
-printf 'Allowed redirect origins: %s\n' "$ALLOWED_REDIRECT_ORIGINS"

@@ -86,7 +86,9 @@ if [[ ! -s "$SEALED_VALUES_FILE" || "$CLUSTER_RECREATED" == true || "${RESEAL:-f
         "${POSTGRES_PASSWORD:-admin}" \
         "${KEYCLOAK_ADMIN:-admin}" \
         "${KEYCLOAK_ADMIN_PASSWORD:-admin}" \
-        "${STRIPE_SECRET_KEY:-sk_test_dummy}" \
+        "${RAZORPAY_KEY_ID:-rzp_test_dummy}" \
+        "${RAZORPAY_KEY_SECRET:-dummy_secret}" \
+        "${RAZORPAY_WEBHOOK_SECRET:-dummy_webhook_secret}" \
         "${GRAFANA_ADMIN_USER:-admin}" \
         "${GRAFANA_ADMIN_PASSWORD:-admin}" \
         | KUBESEAL_BIN=kubeseal CERT_FILE="$SEALED_CERT_FILE" "$ROOT_DIR/seal-helm-values.sh"
@@ -100,6 +102,9 @@ kubectl -n "$NAMESPACE" create secret tls sstore-tls \
 docker build -t mayurb123/sstore:api-gateway "$ROOT_DIR/services/api-gateway"
 docker build -t mayurb123/sstore:product-service "$ROOT_DIR/services/product-service"
 docker build -t mayurb123/sstore:order-service "$ROOT_DIR/services/order-service"
+docker build -t mayurb123/sstore:payment-service "$ROOT_DIR/services/payment-service"
+docker build -t mayurb123/sstore:inventory-service "$ROOT_DIR/services/inventory-service"
+docker build -t mayurb123/sstore:review-service "$ROOT_DIR/services/review-service"
 docker build \
     -t mayurb123/sstore:frontend \
     --build-arg VITE_API_GATEWAY_ENDPOINT="$API_URL" \
@@ -115,6 +120,9 @@ for image in \
     mayurb123/sstore:api-gateway \
     mayurb123/sstore:product-service \
     mayurb123/sstore:order-service \
+    mayurb123/sstore:payment-service \
+    mayurb123/sstore:inventory-service \
+    mayurb123/sstore:review-service \
     mayurb123/sstore:frontend; do
     kind load docker-image "$image" --name "$CLUSTER_NAME"
 done

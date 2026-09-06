@@ -21,7 +21,10 @@ printf '\n'
 read -r -p "Keycloak admin username: " keycloak_username
 read -r -s -p "Keycloak admin password: " keycloak_password
 printf '\n'
-read -r -s -p "Stripe secret key (leave empty to disable Stripe): " stripe_secret_key
+read -r -p "Razorpay key ID: " razorpay_key_id
+read -r -s -p "Razorpay key secret: " razorpay_key_secret
+printf '\n'
+read -r -s -p "Razorpay webhook secret: " razorpay_webhook_secret
 printf '\n'
 read -r -p "Grafana admin username: " grafana_username
 read -r -s -p "Grafana admin password: " grafana_password
@@ -49,8 +52,10 @@ seal_value() {
     printf '    KC_DB_PASSWORD: %s\n' "$(seal_value "$postgres_password" keycloak-secret)"
     printf '    KC_BOOTSTRAP_ADMIN_USERNAME: %s\n' "$(seal_value "$keycloak_username" keycloak-secret)"
     printf '    KC_BOOTSTRAP_ADMIN_PASSWORD: %s\n' "$(seal_value "$keycloak_password" keycloak-secret)"
-    printf '%s\n' '  orderService:'
-    printf '    STRIPE_SECRET_KEY: %s\n' "$(seal_value "$stripe_secret_key" order-service-secret)"
+    printf '%s\n' '  paymentService:'
+    printf '    RAZORPAY_KEY_ID: %s\n' "$(seal_value "$razorpay_key_id" payment-service-secret)"
+    printf '    RAZORPAY_KEY_SECRET: %s\n' "$(seal_value "$razorpay_key_secret" payment-service-secret)"
+    printf '    RAZORPAY_WEBHOOK_SECRET: %s\n' "$(seal_value "$razorpay_webhook_secret" payment-service-secret)"
     printf '%s\n' '  grafana:'
     printf '    GF_SECURITY_ADMIN_USER: %s\n' "$(seal_value "$grafana_username" grafana-admin)"
     printf '    GF_SECURITY_ADMIN_PASSWORD: %s\n' "$(seal_value "$grafana_password" grafana-admin)"

@@ -68,12 +68,12 @@ Use `docker compose down -v` only when you want to delete the local PostgreSQL d
 
 ## Option 2: Kubernetes with Kind
 
-The Kubernetes workflow creates a local Kind cluster named `sstore`, generates trusted local TLS certificates, installs ingress-nginx, builds and loads the same application images used by Compose, and deploys the stack with Kustomize.
+The Kubernetes workflow creates a local Kind cluster named `sstore`, generates trusted local TLS certificates, installs ingress-nginx, builds and loads the same application images used by Compose, and deploys the stack with the Helm chart at `helm/sstore`.
 
 Start the complete development environment:
 
 ```bash
-./start-dev-cluster.sh
+./start-dev-helm-cluster.sh
 ```
 
 The script may ask for your administrator password when it updates `/etc/hosts` or installs the local certificate authority. It adds these local hostnames:
@@ -93,7 +93,7 @@ Open the application:
 Recreate the cluster from scratch:
 
 ```bash
-FORCE=true ./start-dev-cluster.sh
+FORCE=true ./start-dev-helm-cluster.sh
 ```
 
 Delete the local cluster:
@@ -222,14 +222,14 @@ services/product-service/         Product service and Dockerfile
 services/order-service/           Order service and Dockerfile
 services/keycloak/                Compose Keycloak bootstrap script
 services/postgres/                PostgreSQL initialization files
-k8s/                              Kind, Kustomize, ingress, and infrastructure manifests
+k8s/                              Kind, ingress, and namespace manifests
 helm/sstore/                      Helm chart for Kubernetes deployments
-start-dev-cluster.sh              Local Kubernetes bootstrap entry point
+start-dev-helm-cluster.sh          Local Kubernetes bootstrap entry point
 docker-compose.yml                Local Docker Compose entry point
 docs/                             Architecture, deployment, and development documentation
 ```
 
-The Kustomize production overlay is retained for reference. The supported Kubernetes deployment path is the Helm chart, with local defaults in `values.yaml` and production guidance in `values-production.example.yaml`.
+The supported Kubernetes deployment path is the Helm chart, with local defaults in `values.yaml` and production guidance in `values-production.example.yaml`.
 
 ## Option 3: Kubernetes with Helm
 

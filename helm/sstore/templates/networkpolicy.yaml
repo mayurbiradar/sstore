@@ -298,6 +298,22 @@ spec:
         - port: {{ .Values.monitoring.otelCollector.grpcPort }}
           protocol: TCP
     - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: inventory-service
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - port: 8085
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redpanda
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - port: 9092
+          protocol: TCP
+    - to:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
@@ -510,6 +526,10 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: order-service
+              app.kubernetes.io/instance: {{ .Release.Name }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: product-service
               app.kubernetes.io/instance: {{ .Release.Name }}
         - podSelector:
             matchLabels:
@@ -870,6 +890,22 @@ spec:
               app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
         - port: 9092
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: inventory-service
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - port: 8085
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: product-service
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - port: 8082
           protocol: TCP
     - to:
         - podSelector:

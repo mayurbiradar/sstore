@@ -15,7 +15,7 @@ import java.util.UUID;
 
 /**
  * Listens on:
- *  - orders  → OrderCreated  (create reservation)
+ *  - orders  → OrderCreated  (create reservation), OrderDelivered (commit reservation for COD)
  *  - payments → PaymentSucceeded (commit reservation), PaymentFailed (release)
  *
  * Manual acks: we only commit the offset once the DB transaction succeeds,
@@ -33,26 +33,32 @@ public class EventListeners {
     @KafkaListener(topics = "${topics.orders}", groupId = "inventory-service-orders")
     public void onOrderEvent(OrderCreatedEvent event, Acknowledgment ack) {
         try {
-            if (!"OrderCreated".equals(event.eventType())) {
-                ack.acknowledge();
-                return;
+            switch (event.eventType()) {
+                case "OrderCreated" -> {
+                    if (event.items() == null || event.items().isEmpty()) {
+                        log.warn("OrderCreated for {} has no items — skipping", event.orderId());
+                        break;
+                    }
+                    List<ReservationLine> lines = event.items().stream()
+                            .map(i -> ReservationLine.builder()
+                                    .productId(i.productId() != null ? i.productId() : UUID.nameUUIDFromBytes(i.sku().getBytes()))
+                                    .sku(i.sku())
+                                    .quantity(i.quantity() != null ? i.quantity() : 1)
+                                    .build())
+                            .toList();
+                    inventoryService.reserve(event.orderId(), event.userId(), lines);
+                }
+                case "OrderDelivered" -> {
+                    // COD: payment never succeeded, so PaymentSucceeded never fires.
+                    // Commit the reservation when the order is delivered so stock
+                    // is finally deducted from on_hand.
+                    inventoryService.commit(event.orderId());
+                }
+                default -> log.debug("Ignoring order event {} for {}", event.eventType(), event.orderId());
             }
-            if (event.items() == null || event.items().isEmpty()) {
-                log.warn("OrderCreated for {} has no items — skipping", event.orderId());
-                ack.acknowledge();
-                return;
-            }
-            List<ReservationLine> lines = event.items().stream()
-                    .map(i -> ReservationLine.builder()
-                            .productId(i.productId() != null ? i.productId() : UUID.nameUUIDFromBytes(i.sku().getBytes()))
-                            .sku(i.sku())
-                            .quantity(i.quantity() != null ? i.quantity() : 1)
-                            .build())
-                    .toList();
-            inventoryService.reserve(event.orderId(), event.userId(), lines);
             ack.acknowledge();
         } catch (Exception e) {
-            log.error("Failed to reserve inventory for order {}: {}", event.orderId(), e.toString(), e);
+            log.error("Failed to handle order event {} for order {}: {}", event.eventType(), event.orderId(), e.toString(), e);
             // Don't ack — the listener container will redeliver. If the failure
             // is permanent (e.g. unknown SKU), it'll loop forever; in production
             // we'd route to a dead-letter topic. The container is configured

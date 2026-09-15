@@ -19,7 +19,7 @@ command -v kubectl >/dev/null 2>&1 || error "kubectl is not installed"
 command -v kind >/dev/null 2>&1 || error "Kind is not installed"
 
 kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME" \
-    || error "Kind cluster '$CLUSTER_NAME' does not exist. Run ./start-dev-cluster.sh first."
+    || error "Kind cluster '$CLUSTER_NAME' does not exist. Run ./start-dev-helm-cluster.sh first."
 
 test -f "$CHART_DIR/Chart.yaml" \
     || error "Helm chart not found at $CHART_DIR"

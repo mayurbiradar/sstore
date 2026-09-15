@@ -42,7 +42,7 @@ else
         -d "$REALM_PAYLOAD" >/dev/null
 fi
 
-CLIENT_PAYLOAD='{"clientId":"sstore-frontend","enabled":true,"publicClient":true,"redirectUris":["http://localhost","http://localhost/*"],"webOrigins":["http://localhost"]}'
+CLIENT_PAYLOAD='{"clientId":"sstore-frontend","enabled":true,"publicClient":true,"redirectUris":["http://localhost","http://localhost/*","http://localhost:5173/*"],"webOrigins":["http://localhost","http://localhost:5173"]}'
 CLIENT_ID="$(curl -fsS \
     -H "Authorization: Bearer ${TOKEN}" \
     "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/clients?clientId=${KEYCLOAK_CLIENT_ID}" \

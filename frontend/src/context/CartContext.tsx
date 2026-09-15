@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import * as orderApi from '../api/orderApi'
@@ -167,9 +167,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setCart([])
-  }
+  }, [])
 
   const getCartTotal = () => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0)

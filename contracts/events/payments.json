@@ -12,7 +12,7 @@
         "eventType": { "const": "PaymentSucceeded" },
         "paymentId": { "type": "string", "format": "uuid" },
         "orderId": { "type": "string", "format": "uuid" },
-        "provider": { "type": "string", "enum": ["razorpay", "stripe"] },
+        "provider": { "type": "string", "const": "razorpay" },
         "providerPaymentId": { "type": "string" },
         "amount": { "type": "integer" },
         "currency": { "type": "string" },
@@ -27,7 +27,7 @@
         "eventType": { "const": "PaymentFailed" },
         "paymentId": { "type": "string", "format": "uuid" },
         "orderId": { "type": "string", "format": "uuid" },
-        "provider": { "type": "string", "enum": ["razorpay", "stripe"] },
+        "provider": { "type": "string", "const": "razorpay" },
         "reason": { "type": "string" },
         "occurredAt": { "type": "string", "format": "date-time" }
       }

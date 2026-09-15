@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS payments (
     id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id             uuid NOT NULL,
     user_id              text NOT NULL,
-    provider             text NOT NULL CHECK (provider IN ('razorpay','stripe')),
+    provider             text NOT NULL CHECK (provider = 'razorpay'),
     status               text NOT NULL
         CHECK (status IN ('CREATED','PENDING','AUTHORIZED','SUCCEEDED','FAILED','REFUNDED')),
     amount               bigint NOT NULL CHECK (amount >= 0),

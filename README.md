@@ -162,7 +162,7 @@ The frontend configuration is embedded during its image build, so rebuild after 
 docker compose up -d --build frontend
 ```
 
-Do not commit `.env`, passwords, Stripe keys, generated TLS keys, or production secrets.
+Do not commit `.env`, passwords, generated TLS keys, or production secrets.
 
 ## Troubleshooting
 
@@ -325,7 +325,7 @@ BOOTSTRAP_ONLY=true ./start-dev-helm-cluster.sh
 ./deploy-helm.sh
 ```
 
-The bootstrap script automatically fetches the controller certificate and creates encrypted local-development values using `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`, `STRIPE_SECRET_KEY`, `GRAFANA_ADMIN_USER`, and `GRAFANA_ADMIN_PASSWORD` from the environment. If unset, it uses local-only dummy values (`admin` and `sk_test_dummy`); Grafana defaults to `admin` / `admin`. Set those variables before running the script when different values are required.
+The bootstrap script automatically fetches the controller certificate and creates encrypted local-development values using `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`, `GRAFANA_ADMIN_USER`, and `GRAFANA_ADMIN_PASSWORD` from the environment. If unset, it uses local-only dummy values (`admin`); Grafana defaults to `admin` / `admin`. Set those variables before running the script when different values are required.
 
 If using Argo CD, push the newly generated encrypted `helm/sstore/values-sealed.yaml` to the repository before running `./install-argocd.sh`. Never share or commit `k8s/tls/sealed-secrets-key-backup.yaml`; transfer that private backup securely when a developer must use the repository's existing encrypted values.
 
@@ -382,8 +382,6 @@ sealedSecrets:
 		KC_DB_PASSWORD: <encrypted-value>
 		KC_BOOTSTRAP_ADMIN_USERNAME: <encrypted-value>
 		KC_BOOTSTRAP_ADMIN_PASSWORD: <encrypted-value>
-	orderService:
-		STRIPE_SECRET_KEY: <encrypted-value>
 	grafana:
 		GF_SECURITY_ADMIN_USER: <encrypted-value>
 		GF_SECURITY_ADMIN_PASSWORD: <encrypted-value>
@@ -603,7 +601,7 @@ helm upgrade --install sstore ./helm/sstore \
 	-f helm/sstore/values-production.yaml
 ```
 
-Keep production overrides outside the repository or in a private values file. At minimum, set the application image names/tags, ingress hosts and TLS secret, PostgreSQL and Keycloak credentials, and `services.order-service.stripeSecretKey`. Validate without applying:
+Keep production overrides outside the repository or in a private values file. At minimum, set the application image names/tags, ingress hosts and TLS secret, PostgreSQL and Keycloak credentials, and Razorpay credentials. Validate without applying:
 
 Start from the included [values-production.example.yaml](helm/sstore/values-production.example.yaml), but keep the populated copy private.
 

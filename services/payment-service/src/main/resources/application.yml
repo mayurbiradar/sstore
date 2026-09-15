@@ -56,8 +56,8 @@ spring:
       ack-mode: manual_immediate
 
 razorpay:
-  key-id: ${RAZORPAY_KEY_ID:}
-  key-secret: ${RAZORPAY_KEY_SECRET:}
+  key-id: ${RAZORPAY_KEY_ID:rzp_test_TcOCk1v0DGevDX}
+  key-secret: ${RAZORPAY_KEY_SECRET:9lZyUlDzeBLhU2IOqFteh6OR}
   webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
   currency: ${RAZORPAY_CURRENCY:INR}
   company-name: ${RAZORPAY_COMPANY_NAME:SStore}

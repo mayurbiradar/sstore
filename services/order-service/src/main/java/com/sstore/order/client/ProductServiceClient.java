@@ -27,7 +27,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class InventoryServiceClient {
+public class ProductServiceClient {
 
     private final RestClient.Builder restClientBuilder;
 

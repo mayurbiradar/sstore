@@ -1,6 +1,6 @@
 package com.sstore.order.service;
 
-import com.sstore.order.client.InventoryServiceClient;
+import com.sstore.order.client.ProductServiceClient;
 import com.sstore.order.client.PaymentServiceClient;
 import com.sstore.order.domain.Address;
 import com.sstore.order.domain.Order;
@@ -29,7 +29,7 @@ public class OrderService {
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final OrderRepository orderRepository;
     private final AddressRepository addressRepository;
-    private final InventoryServiceClient inventoryClient;
+    private final ProductServiceClient productClient;
     private final PaymentServiceClient paymentClient;
     private final OrderEventPublisher eventPublisher;
 
@@ -73,7 +73,7 @@ public class OrderService {
         // Synchronous stock reservation — gives the user immediate feedback
         // if anything is out of stock. Product-service owns the actual stock
         // state and validates the reservation at the source of truth.
-        inventoryClient.reserve(saved.getId(), saved.getUserId(), List.copyOf(saved.getItems()));
+        productClient.reserve(saved.getId(), saved.getUserId(), List.copyOf(saved.getItems()));
 
         Map<String, Object> payload = Map.of(
                 "eventType", "OrderCreated",

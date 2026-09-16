@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  * <p>Order-service orchestrates downstream services (product stock
  * reservation and payment). When one of them rejects our request we want
  * the original domain message to reach the user, not a generic 500. The
- * convention used by {@link com.sstore.order.client.InventoryServiceClient}
+ * convention used by {@link com.sstore.order.client.ProductServiceClient}
  * and {@link com.sstore.order.client.PaymentServiceClient} is to rethrow
  * non-2xx responses as {@link IllegalStateException} for 409/400 (with the
  * original message appended) or {@link RuntimeException} for 5xx

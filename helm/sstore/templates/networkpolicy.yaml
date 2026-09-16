@@ -44,10 +44,6 @@ spec:
               app.kubernetes.io/instance: {{ .Release.Name }}
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: inventory-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
-        - podSelector:
-            matchLabels:
               app.kubernetes.io/name: review-service
               app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
@@ -58,8 +54,6 @@ spec:
         - port: 8083
           protocol: TCP
         - port: 8084
-          protocol: TCP
-        - port: 8085
           protocol: TCP
         - port: 8086
           protocol: TCP
@@ -205,14 +199,6 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: inventory-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
-      ports:
-        - port: 8085
-          protocol: TCP
-    - to:
-        - podSelector:
-            matchLabels:
               app.kubernetes.io/name: review-service
               app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
@@ -298,13 +284,7 @@ spec:
         - port: {{ .Values.monitoring.otelCollector.grpcPort }}
           protocol: TCP
     - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: inventory-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
-        - port: 8085
-          protocol: TCP
     - to:
         - podSelector:
             matchLabels:
@@ -369,13 +349,7 @@ spec:
         - port: 8084
           protocol: TCP
     - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: inventory-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
-        - port: 8085
-          protocol: TCP
     - to:
         - podSelector:
             matchLabels:
@@ -508,92 +482,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: inventory-service-traffic
-  labels:
-    {{- include "sstore.labels" . | nindent 4 }}
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: inventory-service
-      app.kubernetes.io/instance: {{ .Release.Name }}
-  policyTypes: [Ingress, Egress]
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: api-gateway
-              app.kubernetes.io/instance: {{ .Release.Name }}
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: order-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: product-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: prometheus
-              app.kubernetes.io/instance: {{ .Release.Name }}
-      ports:
-        - port: 8085
-          protocol: TCP
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .Values.networkPolicy.ingressNamespace | quote }}
-      ports:
-        - port: 8085
-          protocol: TCP
-  egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: postgres
-              app.kubernetes.io/instance: {{ .Release.Name }}
-      ports:
-        - port: 5432
-          protocol: TCP
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: keycloak
-              app.kubernetes.io/instance: {{ .Release.Name }}
-      ports:
-        - port: 8080
-          protocol: TCP
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: redpanda
-              app.kubernetes.io/instance: {{ .Release.Name }}
-      ports:
-        - port: 9092
-          protocol: TCP
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: otel-collector
-              app.kubernetes.io/instance: {{ .Release.Name }}
-      ports:
-        - port: {{ .Values.monitoring.otelCollector.grpcPort }}
-          protocol: TCP
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - port: 53
-          protocol: UDP
-        - port: 53
-          protocol: TCP
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: redpanda-traffic
   labels:
     {{- include "sstore.labels" . | nindent 4 }}
@@ -612,10 +500,6 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: payment-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: inventory-service
               app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
         - port: 9092
@@ -667,10 +551,6 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: payment-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: inventory-service
               app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
         - port: {{ .Values.monitoring.otelCollector.grpcPort }}
@@ -727,10 +607,6 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: payment-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: inventory-service
               app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
         - port: 8080
@@ -827,10 +703,6 @@ spec:
               app.kubernetes.io/instance: {{ .Release.Name }}
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: inventory-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
-        - podSelector:
-            matchLabels:
               app.kubernetes.io/name: review-service
               app.kubernetes.io/instance: {{ .Release.Name }}
         - podSelector:
@@ -892,13 +764,7 @@ spec:
         - port: 9092
           protocol: TCP
     - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: inventory-service
-              app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
-        - port: 8085
-          protocol: TCP
     - to:
         - podSelector:
             matchLabels:

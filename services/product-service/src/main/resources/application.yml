@@ -44,13 +44,6 @@ topics:
   reviews: ${TOPICS_REVIEWS:reviews}
   orders: ${TOPICS_ORDERS:orders}
 
-# Cross-service base URLs.
-# product-service calls inventory-service directly (not through api-gateway)
-# on product creation to auto-register the SKU in inventory_items.
-services:
-  inventory:
-    base-url: ${INVENTORY_SERVICE_URL:http://localhost:8085}
-
 flyway:
   enabled: ${FLYWAY_ENABLED:true}
   locations: ${FLYWAY_LOCATIONS:classpath:db/migration}

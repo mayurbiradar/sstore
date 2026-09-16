@@ -61,8 +61,8 @@ topics:
   orders: orders
 
 services:
-  inventory:
-    base-url: ${INVENTORY_SERVICE_URL:http://localhost:8085}
+  product:
+    base-url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
   payment:
     base-url: ${PAYMENT_SERVICE_URL:http://localhost:8084}
 

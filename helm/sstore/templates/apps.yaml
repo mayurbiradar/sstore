@@ -17,8 +17,7 @@ data:
   KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/{{ $.Values.keycloak.realm }}/protocol/openid-connect/certs
   FLYWAY_ENABLED: "true"
   SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-  SERVICES_INVENTORY_BASE_URL: http://inventory-service:8085
-  INVENTORY_SERVICE_URL: http://inventory-service:8085
+  PRODUCT_SERVICE_URL: http://product-service:8082
   {{- else if eq $name "order-service" }}
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
   JPA_DDL_AUTO: validate
@@ -30,7 +29,7 @@ data:
   SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
   TOPICS_ORDERS: orders
   TOPICS_PAYMENTS: payments
-  SERVICES_INVENTORY_BASE_URL: http://inventory-service:8085
+  PRODUCT_SERVICE_URL: http://product-service:8082
   SERVICES_PAYMENT_BASE_URL: http://payment-service:8084
   {{- else if eq $name "payment-service" }}
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
@@ -45,18 +44,6 @@ data:
   TOPICS_PAYMENTS: payments
   RAZORPAY_CURRENCY: {{ $config.razorpayCurrency | quote }}
   RAZORPAY_COMPANY_NAME: {{ $config.razorpayCompanyName | quote }}
-  {{- else if eq $name "inventory-service" }}
-  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
-  JPA_DDL_AUTO: validate
-  JPA_SHOW_SQL: "false"
-  SPRING_APPLICATION_NAME: inventory-service
-  KEYCLOAK_ISSUER_URI: https://{{ $.Values.hosts.keycloak }}/realms/{{ $.Values.keycloak.realm }}
-  KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/{{ $.Values.keycloak.realm }}/protocol/openid-connect/certs
-  FLYWAY_ENABLED: "true"
-  SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-  TOPICS_ORDERS: orders
-  TOPICS_PAYMENTS: payments
-  RESERVATION_TTL_MINUTES: "15"
   {{- else if eq $name "review-service" }}
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ $config.database }}
   JPA_DDL_AUTO: validate
@@ -83,7 +70,6 @@ data:
   PRODUCT_SERVICE_URL: http://product-service:8082
   ORDER_SERVICE_URL: http://order-service:8083
   PAYMENT_SERVICE_URL: http://payment-service:8084
-  INVENTORY_SERVICE_URL: http://inventory-service:8085
   REVIEW_SERVICE_URL: http://review-service:8086
   KEYCLOAK_URL: http://keycloak:8080
   KEYCLOAK_REALM: {{ $.Values.keycloak.realm | quote }}
@@ -142,7 +128,7 @@ spec:
               value: none
             - name: OTEL_LOGS_EXPORTER
               value: none(eq $name "review-service") 
-          {{- if or (eq $name "product-service") (eq $name "order-service") (eq $name "payment-service") (eq $name "inventory-service") }}
+          {{- if or (eq $name "product-service") (eq $name "order-service") (eq $name "payment-service") }}
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.postgresSecretName }}, key: POSTGRES_USER}}
             - name: SPRING_DATASOURCE_PASSWORD

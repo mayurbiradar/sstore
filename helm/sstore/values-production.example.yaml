@@ -33,9 +33,6 @@ services:
     razorpayKeyId: replace-me
     razorpayKeySecret: replace-me
     razorpayWebhookSecret: replace-me
-  inventory-service:
-    image: mayurb123/sstore:inventory-service
-    replicas: 2
   api-gateway:
     image: mayurb123/sstore:api-gateway
     replicas: 2

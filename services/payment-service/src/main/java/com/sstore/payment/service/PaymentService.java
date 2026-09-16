@@ -22,7 +22,7 @@ import java.util.UUID;
 /**
  * Owns the lifecycle of a Payment row. On SUCCEEDED / FAILED / REFUNDED it
  * enqueues a payment event for the outbox relay to publish. Consumers
- * (order-service, inventory-service) react to those events.
+ * (order-service and product-service) react to those events.
  */
 @Service
 @RequiredArgsConstructor

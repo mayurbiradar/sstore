@@ -4,8 +4,8 @@ import { toast } from 'sonner'
 export interface WishlistItem {
   id: string
   /**
-   * Product SKU as registered with inventory-service. Required at checkout
-   * because order-service forwards `lines[].sku` to inventory-service to
+   * Product SKU as registered with the product catalog. Required at checkout
+   * because order-service forwards `lines[].sku` to product-service for stock
    * reserve stock. Without it, inventory returns "Unknown SKU" and the
    * order-service propagates that as a 500.
    */

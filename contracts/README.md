@@ -4,8 +4,8 @@ JSON-Schema definitions for the events flowing on Kafka topics. Treat these as t
 
 | Topic | Publisher | Consumers | Schema |
 | --- | --- | --- | --- |
-| `orders` | order-service | inventory-service (OrderCreated / OrderCancelled), payment-service (OrderCreated, for amount sanity checks) | [orders.json](events/orders.json) |
-| `payments` | payment-service | order-service (status), inventory-service (commit/release reservations) | [payments.json](events/payments.json) |
+| `orders` | order-service | product-service (stock updates), payment-service (OrderCreated, for amount sanity checks) | [orders.json](events/orders.json) |
+| `payments` | payment-service | order-service (status) | [payments.json](events/payments.json) |
 
 Conventions:
 - Kafka message **key** = aggregate id (orderId / paymentId). Guarantees ordering per-aggregate.

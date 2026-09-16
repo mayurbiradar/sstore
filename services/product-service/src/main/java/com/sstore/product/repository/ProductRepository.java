@@ -3,10 +3,13 @@ package com.sstore.product.repository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -47,6 +50,24 @@ public interface ProductRepository extends JpaRepository<Product, UUID>, JpaSpec
          ORDER BY p.updatedAt DESC
         """)
     List<Product> findAllNotDeleted();
+
+    /** Lock the product row for reservation-time validation and stock mutation. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT p FROM Product p
+         WHERE p.id = :productId
+           AND p.deletedAt IS NULL
+        """)
+    Optional<Product> findByIdForUpdate(@Param("productId") UUID productId);
+
+    /** Lock the product row by SKU so reservation can validate stock atomically. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT p FROM Product p
+         WHERE p.sku = :sku
+           AND p.deletedAt IS NULL
+        """)
+    Optional<Product> findBySkuForUpdate(@Param("sku") String sku);
 
     /**
      * Atomic aggregate update: set avg_rating and review_count in one round-trip.

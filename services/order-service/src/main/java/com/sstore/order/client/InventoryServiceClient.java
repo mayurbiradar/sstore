@@ -20,10 +20,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Synchronous call into inventory-service to reserve stock when an order is
- * created. We do this in addition to publishing OrderCreated to Kafka so that
- * the API can return a clear "out of stock" error to the user immediately.
- * The kafka path is still the source of truth — the listener is idempotent.
+ * Synchronous stock reservation call routed to product-service. The product
+ * service owns the stock state and rejects insufficient-capacity orders before
+ * we persist the order as a failed checkout.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,7 +31,7 @@ public class InventoryServiceClient {
 
     private final RestClient.Builder restClientBuilder;
 
-    @Value("${services.inventory.base-url}")
+    @Value("${services.product.base-url}")
     private String baseUrl;
 
     /**
@@ -56,7 +55,7 @@ public class InventoryServiceClient {
         try {
             RestClient client = restClientBuilder.baseUrl(baseUrl).build();
             client.post()
-                    .uri("/api/inventory/reservations")
+                    .uri("/api/products/reservations")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + currentToken())
                     .body(body)
                     .retrieve()

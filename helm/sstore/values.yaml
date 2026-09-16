@@ -32,7 +32,6 @@ postgres:
     - order_db
     - product_db
     - payment_db
-    - inventory_db
     - review_db
 
 keycloak:
@@ -71,14 +70,6 @@ services:
     razorpayWebhookSecret: ""
     razorpayCurrency: INR
     razorpayCompanyName: SStore
-    resources:
-      requests: {cpu: 250m, memory: 512Mi}
-      limits: {cpu: "1", memory: 1Gi}
-  inventory-service:
-    image: mayurb123/sstore:inventory-service
-    port: 8085
-    replicas: 1
-    database: inventory_db
     resources:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}

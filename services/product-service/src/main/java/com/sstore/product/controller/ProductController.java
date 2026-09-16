@@ -34,9 +34,9 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.sstore.product.client.InventoryServiceClient;
 import com.sstore.product.domain.Product;
 import com.sstore.product.repository.ProductRepository;
+import com.sstore.product.service.ProductReservationService;
 import com.sstore.product.service.ProductSearchService;
 import com.sstore.product.service.ProductSearchService.StockFilter;
 import com.sstore.product.service.SlugGenerator;
@@ -47,15 +47,15 @@ import com.sstore.product.web.NotFoundException;
 public class ProductController {
 
     private final ProductRepository productRepo;
-    private final InventoryServiceClient inventoryClient;
     private final ProductSearchService searchService;
+    private final ProductReservationService productReservationService;
 
     public ProductController(ProductRepository productRepo,
-                             InventoryServiceClient inventoryClient,
-                             ProductSearchService searchService) {
+                             ProductSearchService searchService,
+                             ProductReservationService productReservationService) {
         this.productRepo = productRepo;
-        this.inventoryClient = inventoryClient;
         this.searchService = searchService;
+        this.productReservationService = productReservationService;
     }
 
     // -------------------------------------------------------------------------
@@ -207,12 +207,15 @@ public class ProductController {
 
         Product saved = productRepo.save(p);
 
-        // Auto-register the new SKU with inventory-service so checkout can
-        // attach stock once the admin sets it. Inventory's upsert is
-        // idempotent (only tops up onHand), so retries won't reset stock.
-        inventoryClient.registerProduct(saved.getId(), saved.getSku(), saved.getName(), 0);
-
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(saved);
+    }
+
+    @PostMapping("/reservations")
+    public ResponseEntity<Void> reserve(@RequestBody ReservationRequest request) {
+        productReservationService.reserve(request.lines().stream()
+                .map(line -> new ProductReservationService.Line(line.sku(), line.productId(), line.quantity()))
+                .toList());
+        return ResponseEntity.accepted().build();
     }
 
     /** JSON-only update endpoint (no image). All optional — partial update. */
@@ -230,13 +233,6 @@ public class ProductController {
         p.setFeatured(patch.isFeatured());
 
         Product saved = productRepo.save(p);
-
-        // Mirror the new value to inventory-service so checkout can fulfil.
-        // registerProduct tops up; we want a set, so use the dedicated
-        // setOnHand endpoint when stock actually changed.
-        if (stockChanged) {
-            inventoryClient.setOnHand(saved.getId(), saved.getStock());
-        }
 
         return ResponseEntity.ok(saved);
     }
@@ -274,6 +270,10 @@ public class ProductController {
     }
 
     public record BulkStockAdjust(UUID id, Integer delta, Integer setTo) {}
+
+    public record ReservationRequest(List<Line> lines) {
+        public record Line(String sku, UUID productId, Integer quantity) {}
+    }
 
     // -------------------------------------------------------------------------
     // helpers

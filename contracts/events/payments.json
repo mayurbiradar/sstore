@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Payment events",
-  "description": "Events published by payment-service. topic: payments. key: orderId. The source of truth for payment status — order-service subscribes and updates the order; inventory-service subscribes and commits/releases stock.",
+  "description": "Events published by payment-service. topic: payments. key: orderId. The source of truth for payment status — order-service subscribes and updates the order.",
   "type": "object",
   "oneOf": [
     {

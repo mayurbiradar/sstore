@@ -103,7 +103,6 @@ docker build -t mayurb123/sstore:api-gateway "$ROOT_DIR/services/api-gateway"
 docker build -t mayurb123/sstore:product-service "$ROOT_DIR/services/product-service"
 docker build -t mayurb123/sstore:order-service "$ROOT_DIR/services/order-service"
 docker build -t mayurb123/sstore:payment-service "$ROOT_DIR/services/payment-service"
-docker build -t mayurb123/sstore:inventory-service "$ROOT_DIR/services/inventory-service"
 docker build -t mayurb123/sstore:review-service "$ROOT_DIR/services/review-service"
 docker build \
     -t mayurb123/sstore:frontend \
@@ -121,7 +120,6 @@ for image in \
     mayurb123/sstore:product-service \
     mayurb123/sstore:order-service \
     mayurb123/sstore:payment-service \
-    mayurb123/sstore:inventory-service \
     mayurb123/sstore:review-service \
     mayurb123/sstore:frontend; do
     kind load docker-image "$image" --name "$CLUSTER_NAME"

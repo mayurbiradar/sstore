@@ -71,9 +71,8 @@ public class OrderService {
         Order saved = orderRepository.save(order);
 
         // Synchronous stock reservation — gives the user immediate feedback
-        // if anything is out of stock. inventory-service's kafka listener
-        // will also see the OrderCreated and try to reserve; that path is
-        // idempotent so it's fine.
+        // if anything is out of stock. Product-service owns the actual stock
+        // state and validates the reservation at the source of truth.
         inventoryClient.reserve(saved.getId(), saved.getUserId(), List.copyOf(saved.getItems()));
 
         Map<String, Object> payload = Map.of(

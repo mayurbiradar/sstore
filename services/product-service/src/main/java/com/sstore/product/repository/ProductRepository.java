@@ -1,6 +1,5 @@
 package com.sstore.product.repository;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -77,48 +76,6 @@ public interface ProductRepository extends JpaRepository<Product, UUID>, JpaSpec
         """)
     int incrementSoldCount(@Param("productId") UUID productId,
                            @Param("delta") int delta);
-
-    // -------------------------------------------------------------------------
-    // Admin-side analytics queries.
-    // -------------------------------------------------------------------------
-
-    /** Products whose on-hand stock has fallen at or below the fixed threshold (5). */
-    @Query("""
-        SELECT p FROM Product p
-         WHERE p.active = true
-           AND p.deletedAt IS NULL
-           AND p.stock <= 5
-         ORDER BY p.stock ASC, p.name ASC
-        """)
-    List<Product> findLowStock();
-
-    /** Count of products grouped by active/inactive flag. */
-    @Query("""
-        SELECT p.active, COUNT(p)
-          FROM Product p
-         WHERE p.deletedAt IS NULL
-         GROUP BY p.active
-        """)
-    List<Object[]> countByActive();
-
-    /** Top-selling products by `sold_count`. */
-    @Query("""
-        SELECT p FROM Product p
-         WHERE p.deletedAt IS NULL
-           AND p.soldCount > 0
-         ORDER BY p.soldCount DESC, p.name ASC
-        """)
-    List<Product> findTopSelling(org.springframework.data.domain.Pageable pageable);
-
-    /** Recently updated products. */
-    @Query("""
-        SELECT p FROM Product p
-         WHERE p.deletedAt IS NULL
-           AND p.updatedAt >= :since
-         ORDER BY p.updatedAt DESC
-        """)
-    List<Product> findRecentlyUpdated(@Param("since") Instant since,
-                                      org.springframework.data.domain.Pageable pageable);
 
     /** Bulk stock adjustment: set stock to a given value. */
     @Modifying

@@ -60,8 +60,7 @@ CREATE TABLE IF NOT EXISTS products (
     version             bigint NOT NULL DEFAULT 0,
     created_at          timestamptz NOT NULL DEFAULT now(),
     updated_at          timestamptz NOT NULL DEFAULT now(),
-    deleted_at          timestamptz,
-    published_at        timestamptz                  -- first time status moved to ACTIVE
+    deleted_at          timestamptz
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_active      ON products(active)      WHERE active = true  AND deleted_at IS NULL;
@@ -79,21 +78,6 @@ DROP TRIGGER IF EXISTS trg_products_updated_at ON products;
 CREATE TRIGGER trg_products_updated_at
     BEFORE UPDATE ON products
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- Maintain published_at: set the first time the product is marked active.
-CREATE OR REPLACE FUNCTION set_published_at() RETURNS trigger AS $$
-BEGIN
-    IF NEW.active = true AND (OLD.active IS NULL OR OLD.active = false) THEN
-        NEW.published_at := COALESCE(NEW.published_at, now());
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_products_published_at ON products;
-CREATE TRIGGER trg_products_published_at
-    BEFORE UPDATE ON products
-    FOR EACH ROW EXECUTE FUNCTION set_published_at();
 
 -- ---------------------------------------------------------------------------
 -- Event outbox (transactional outbox pattern; shared shape across services)

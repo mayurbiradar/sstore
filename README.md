@@ -38,18 +38,49 @@ Compose runs the application over HTTP using `localhost`. It builds all applicat
 Create the local environment file and start the stack. Docker Compose does not provide fallback values, so `.env` must exist and contain the required settings:
 
 ```bash
-cp .env.example .env
+cp .env.example.local .env
 chmod 600 .env
 docker compose up -d --build
 ```
 
-For local development, `.env.example` uses `admin` for the PostgreSQL and Keycloak username/password values. Replace them before sharing the environment or using it outside your machine. Keep `.env` private; it is ignored by Git.
+For local development, `.env.example.local` uses `admin` for the PostgreSQL and Keycloak username/password values. Replace them before sharing the environment or using it outside your machine. Keep `.env` private; it is ignored by Git.
+
+The `.env` file should include these required variables:
+
+**Database:**
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
+
+**PgAdmin:**
+- `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD` (optional, defaults to `admin@sstore.com` / `admin`)
+
+**Keycloak:**
+- `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`
+- `KEYCLOAK_HOSTNAME`, `KEYCLOAK_URL`, `KEYCLOAK_REALM`
+- `KEYCLOAK_ISSUER_URI`, `KEYCLOAK_JWK_SET_URI`
+
+**Service URLs:**
+- `PRODUCT_SERVICE_URL`, `ORDER_SERVICE_URL`, `PAYMENT_SERVICE_URL`
+
+**Frontend (VITE_*):**
+- `VITE_API_GATEWAY_ENDPOINT`, `VITE_STORE_EMAIL`, `VITE_STORE_PHONE`
+- `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID`
+- `VITE_KEYCLOAK_GOOGLE_IDP_HINT`, `GOOGLE_CLIENT_SECRET`
+- `VITE_STORE_NAME`, `VITE_STORE_ADDRESS`, `VITE_STORE_HOURS`
+- `VITE_STORE_TAGLINE`, `VITE_STORE_PAYMENTS`, `VITE_STORE_INSTAGRAM`
+
+**Razorpay:**
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
+- `RAZORPAY_CURRENCY`, `RAZORPAY_COMPANY_NAME`
 
 Open the application:
 
 - Frontend: http://localhost
 - API Gateway: http://localhost:9090
 - Keycloak: http://localhost:8080
+- PgAdmin: http://localhost:5050
+- Redpanda (Kafka): http://localhost:9092 (or 9644 for admin)
+- Product Service: http://localhost:8082
+- Order Service: http://localhost:8083
 
 Check service status and logs:
 
@@ -64,7 +95,7 @@ Stop the stack:
 docker compose down
 ```
 
-Use `docker compose down -v` only when you want to delete the local PostgreSQL data volume. PgAdmin is currently disabled in Compose.
+Use `docker compose down -v` only when you want to delete the local PostgreSQL data volume. PgAdmin is available at http://localhost:5050.
 
 ## Option 2: Kubernetes with Kind
 
@@ -143,6 +174,10 @@ The two workflows use the same application image names, service names, ports, da
 | Frontend | http://localhost | https://app.sstore.local |
 | API Gateway | http://localhost:9090 | https://api.sstore.local |
 | Keycloak | http://localhost:8080 | https://auth.sstore.local |
+| PgAdmin | http://localhost:5050 | Internal Kubernetes service |
+| Redpanda (Kafka) | http://localhost:9092 | Internal Kubernetes service |
+| Product Service | http://localhost:8082 | Internal Kubernetes service |
+| Order Service | http://localhost:8083 | Internal Kubernetes service |
 | PostgreSQL | localhost:5432 | Internal Kubernetes service |
 
 Do not use the Kubernetes `*.sstore.local` URLs with the HTTP-only Compose frontend. The Compose frontend uses `localhost` so browser Web Crypto and Keycloak PKCE authentication work correctly.
@@ -220,6 +255,7 @@ frontend/                         React application, Dockerfile, and Nginx confi
 services/api-gateway/             API gateway and Dockerfile
 services/product-service/         Product service and Dockerfile
 services/order-service/           Order service and Dockerfile
+services/payment-service/         Payment service and Dockerfile
 services/keycloak/                Compose Keycloak bootstrap script
 services/postgres/                PostgreSQL initialization files
 k8s/                              Kind, ingress, and namespace manifests

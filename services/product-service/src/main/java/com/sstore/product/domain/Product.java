@@ -78,7 +78,4 @@ public class Product {
 
     @Column(name = "deleted_at")
     private Instant deletedAt; // soft delete
-
-    @Column(name = "published_at")
-    private Instant publishedAt;
 }

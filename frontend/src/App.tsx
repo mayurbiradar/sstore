@@ -120,7 +120,7 @@ function App() {
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
                     <Route path="/admin" element={<ProtectedRoute requiredRole="ADMIN"><AdminDashboard /></ProtectedRoute>} />
                     <Route path="/admin/product/:productId/edit" element={<ProtectedRoute requiredRole="ADMIN"><AdminProductEdit /></ProtectedRoute>} />
-                    <Route path="/admin/product/:productId" element={<Navigate to="/admin/product/:productId/edit" replace />} />
+                    <Route path="/admin/product/:productId" element={<Navigate to="edit" replace />} />
                     <Route path="/product/:productId" element={<ProductDetail />} />
                     <Route path="/about" element={<About />} />
                     <Route path="/contact" element={<Contact />} />

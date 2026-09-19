@@ -69,19 +69,18 @@ public class RazorpayWebhookController {
 
         Map<String, Object> payload;
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> parsed = objectMapper.readValue(rawBody, Map.class);
-            payload = parsed;
+            payload = objectMapper.readValue(rawBody, Map.class);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "invalid json"));
         }
+
         webhookEventRepository.save(WebhookEvent.builder()
                 .provider("razorpay")
                 .eventId(eventId)
                 .payload(payload)
                 .build());
 
-        String event = String.valueOf(payload.get("event"));
+        String event = String.valueOf(payload.getOrDefault("event", ""));
         try {
             switch (event) {
                 case "payment.captured" -> handleCaptured(payload);
@@ -101,8 +100,7 @@ public class RazorpayWebhookController {
 
     @SuppressWarnings("unchecked")
     private void handleCaptured(Map<String, Object> payload) {
-        Map<String, Object> paymentEntity = (Map<String, Object>) ((Map<String, Object>) payload.get("payload")).get("payment");
-        Map<String, Object> entity = (Map<String, Object>) paymentEntity.get("entity");
+        Map<String, Object> entity = getEntity(payload, "payment");
         String orderId = String.valueOf(entity.get("order_id"));
         String paymentId = String.valueOf(entity.get("id"));
         Optional<Payment> payment = paymentRepository.findByProviderAndProviderOrderId("razorpay", orderId);
@@ -114,8 +112,7 @@ public class RazorpayWebhookController {
 
     @SuppressWarnings("unchecked")
     private void handleFailed(Map<String, Object> payload) {
-        Map<String, Object> paymentEntity = (Map<String, Object>) ((Map<String, Object>) payload.get("payload")).get("payment");
-        Map<String, Object> entity = (Map<String, Object>) paymentEntity.get("entity");
+        Map<String, Object> entity = getEntity(payload, "payment");
         String orderId = String.valueOf(entity.get("order_id"));
         String reason = String.valueOf(entity.getOrDefault("error_description", "payment failed"));
         paymentRepository.findByProviderAndProviderOrderId("razorpay", orderId)
@@ -124,8 +121,7 @@ public class RazorpayWebhookController {
 
     @SuppressWarnings("unchecked")
     private void handleRefund(Map<String, Object> payload) {
-        Map<String, Object> refundEntity = (Map<String, Object>) ((Map<String, Object>) payload.get("payload")).get("refund");
-        Map<String, Object> entity = (Map<String, Object>) refundEntity.get("entity");
+        Map<String, Object> entity = getEntity(payload, "refund");
         String razorpayPaymentId = String.valueOf(entity.get("payment_id"));
         String refundId = String.valueOf(entity.get("id"));
         paymentRepository.findAll().stream()
@@ -137,5 +133,25 @@ public class RazorpayWebhookController {
                     p.setRefundedAt(java.time.Instant.now());
                     paymentRepository.save(p);
                 });
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getEntity(Map<String, Object> payload, String key) {
+        Object payloadNode = payload.get("payload");
+        if (!(payloadNode instanceof Map<?, ?> payloadMap)) {
+            throw new IllegalArgumentException("Missing payload map for event " + payload.getOrDefault("event", "unknown"));
+        }
+
+        Object eventNode = payloadMap.get(key);
+        if (!(eventNode instanceof Map<?, ?> eventMap)) {
+            throw new IllegalArgumentException("Missing " + key + " data for event " + payload.getOrDefault("event", "unknown"));
+        }
+
+        Object entityNode = ((Map<?, ?>) eventMap).get("entity");
+        if (!(entityNode instanceof Map<?, ?> entity)) {
+            throw new IllegalArgumentException("Missing entity payload for event " + payload.getOrDefault("event", "unknown"));
+        }
+
+        return (Map<String, Object>) entity;
     }
 }

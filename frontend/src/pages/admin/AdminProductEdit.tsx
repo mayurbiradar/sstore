@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import * as productApi from '../../api/productApi';
 import type { Product } from '../../api/productApi';
 import { API_BASE_URL } from '../../constants';
-import { checkAdminAndProceed } from '../../utils/authUtils';
+import { checkAdminAndProceed, getStoredAccessToken } from '../../utils/authUtils';
 
 /** Convert paise (backend) → rupees (UI input). */
 const toRupees = (paise: number | null | undefined) =>
@@ -65,7 +65,7 @@ export default function AdminProductEdit() {
           return;
         }
         setLoading(true);
-        const token = localStorage.getItem('accessToken') || '';
+        const token = getStoredAccessToken() || '';
         productApi.getProduct(productId, token)
           .then((p: Product) => {
             setDraft({
@@ -113,7 +113,7 @@ export default function AdminProductEdit() {
         active: draft.active,
         featured: draft.featured,
       };
-      const token = localStorage.getItem('accessToken') || '';
+      const token = getStoredAccessToken() || '';
       await productApi.updateProduct(draft.id, payload, token);
       toast.success('Product saved');
       // Refresh draft so updatedAt / version reflect server state.
@@ -143,7 +143,7 @@ export default function AdminProductEdit() {
     if (!confirm(`Soft-delete "${draft.name}"? It will be hidden from the storefront but order history still references it.`)) {
       return;
     }
-    const token = localStorage.getItem('accessToken') || '';
+    const token = getStoredAccessToken() || '';
     try {
       await productApi.deleteProduct(draft.id, token);
       toast.success('Product deleted');

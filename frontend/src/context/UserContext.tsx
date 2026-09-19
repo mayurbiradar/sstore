@@ -3,8 +3,9 @@ import type { ReactNode } from 'react';
 import { googleIdentityProvider, keycloak } from '../auth/keycloak';
 import { getMyProfile } from '../api/userApi';
 import type { KeycloakUser } from '../api/userApi';
+import { clearStoredAccessToken, setStoredAccessToken } from '../utils/authUtils';
 
-interface User {
+export interface User {
   /** Keycloak user id (UUID string). */
   id?: string;
   firstName?: string;
@@ -65,7 +66,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return;
       }
       const accessToken = keycloak.token;
-      localStorage.setItem('accessToken', accessToken);
+      setStoredAccessToken(accessToken);
       const tokenParsed = keycloak.tokenParsed as JwtClaims | undefined;
       // Seed from the JWT so the UI has values immediately.
       setUser(fromKeycloak(undefined, tokenParsed));
@@ -86,13 +87,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     authClient.onTokenExpired = async () => {
       try {
         await authClient.updateToken(30);
-        if (authClient.token) localStorage.setItem('accessToken', authClient.token);
+        if (authClient.token) setStoredAccessToken(authClient.token);
       } catch {
         await authClient.logout({ redirectUri: window.location.origin + '/login' });
       }
     };
     authClient.onAuthLogout = () => {
-      localStorage.removeItem('accessToken');
+      clearStoredAccessToken();
       setUser(null);
     };
   }, []);
@@ -116,9 +117,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (keycloak?.authenticated) {
       await keycloak.logout({ redirectUri: window.location.origin + '/login' });
     }
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    clearStoredAccessToken();
+    window.localStorage.removeItem('refreshToken');
+    window.localStorage.removeItem('user');
     setUser(null);
   };
 

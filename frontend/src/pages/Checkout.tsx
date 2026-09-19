@@ -7,6 +7,7 @@ import type { CartItem } from '../context/CartContext'
 import { API_BASE_URL } from "../constants";
 import { STORE } from "../constants/store";
 import { useUser } from '../context/UserContext';
+import { getStoredAccessToken } from '../utils/authUtils';
 import {
   createOrder,
   startOnlinePaymentSession,
@@ -71,7 +72,7 @@ export default function Checkout() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('accessToken') || undefined;
+      const token = getStoredAccessToken() || undefined;
       // Build order payload matching the backend Order entity.
       // Backend ignores `userId`, computes `totalAmount` server-side, and
       // accepts only these fields at the top level:
@@ -149,7 +150,7 @@ export default function Checkout() {
 
     setLoadingAddresses(true);
     try {
-      const token = localStorage.getItem('accessToken') || undefined;
+      const token = getStoredAccessToken() || undefined;
       const data = await getMyAddresses(token);
       setAddresses(data);
       if (data.length > 0 && data[0].id) {
@@ -652,7 +653,7 @@ async function payWithRazorpay(
     return
   }
 
-  const token = localStorage.getItem('accessToken') || undefined
+  const token = getStoredAccessToken() || undefined
 
   // 1. Create the order in order-service. order-service will reserve stock
   //    synchronously and emit OrderCreated on Kafka.

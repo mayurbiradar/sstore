@@ -4,6 +4,7 @@ import { Heart, Check } from 'lucide-react'
 import { getMyOrders, type Order } from '../../api/orderApi'
 import { API_BASE_URL } from '../../constants'
 import { OrderCardSkeleton, Skeleton, StatTileSkeleton } from '../../components/Skeleton'
+import { getStoredAccessToken } from '../../utils/authUtils'
 
 const formatPrice = (paise: number) =>
   `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
@@ -44,7 +45,7 @@ export default function Orders() {
     setOrderPage(1)
     setLoading(true)
     setError(false)
-    getMyOrders(localStorage.getItem('accessToken') || undefined)
+    getMyOrders(getStoredAccessToken() || undefined)
       .then(orders => setOrders(orders))
       .catch(() => setError(true))
       .finally(() => setLoading(false))

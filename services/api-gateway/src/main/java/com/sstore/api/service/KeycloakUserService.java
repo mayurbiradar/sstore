@@ -42,18 +42,7 @@ public class KeycloakUserService {
             .body(new ParameterizedTypeReference<>() {});
         if (users == null) return List.of();
 
-        users.forEach(user -> {
-            List<Map<String, Object>> roles = client.get()
-                .uri(adminPath("/users/" + user.get("id") + "/role-mappings/realm"))
-                .headers(headers -> headers.setBearerAuth(token))
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
-            String role = roles != null && roles.stream().anyMatch(item -> "ADMIN".equals(item.get("name"))) ? "ADMIN" : "USER";
-            user.put("role", role);
-            Map<String, Object> attributes = attributes(user);
-            Object phone = attributes.get("phone");
-            user.put("phone", phone instanceof List<?> values && !values.isEmpty() ? values.get(0) : phone == null ? "" : phone);
-        });
+        users.forEach(user -> enrichUser(user, token));
         return users;
     }
 
@@ -70,9 +59,13 @@ public class KeycloakUserService {
         copyIfPresent(changes, user, "firstName");
         copyIfPresent(changes, user, "lastName");
         copyIfPresent(changes, user, "email");
+
         Map<String, Object> attributes = attributes(user);
-        if (changes.containsKey("phone")) attributes.put("phone", List.of(String.valueOf(changes.get("phone"))));
+        if (changes.containsKey("phone")) {
+            attributes.put("phone", List.of(String.valueOf(changes.get("phone"))));
+        }
         user.put("attributes", attributes);
+
         client.put()
             .uri(userPath)
             .headers(headers -> headers.setBearerAuth(token))
@@ -81,8 +74,12 @@ public class KeycloakUserService {
             .retrieve()
             .toBodilessEntity();
 
-        if (changes.get("role") != null) updateRole(id, changes.get("role").toString(), token);
-        if (changes.containsKey("phone")) user.put("phone", changes.get("phone"));
+        if (changes.get("role") != null) {
+            updateRole(id, changes.get("role").toString(), token);
+        }
+        if (changes.containsKey("phone")) {
+            user.put("phone", changes.get("phone"));
+        }
         return user;
     }
 
@@ -94,9 +91,7 @@ public class KeycloakUserService {
             .retrieve()
             .body(new ParameterizedTypeReference<>() {});
         if (user == null) throw new IllegalStateException("User not found");
-        Map<String, Object> attributes = attributes(user);
-        Object phone = attributes.get("phone");
-        user.put("phone", phone instanceof List<?> values && !values.isEmpty() ? values.get(0) : phone == null ? "" : phone);
+        enrichUser(user, token);
         return user;
     }
 
@@ -115,15 +110,18 @@ public class KeycloakUserService {
 
     private void updateRole(String id, String role, String token) {
         if (!List.of("ADMIN", "USER").contains(role)) throw new IllegalArgumentException("Unsupported role");
+
         String mappingsPath = adminPath("/users/" + id + "/role-mappings/realm");
         List<Map<String, Object>> current = client.get()
             .uri(mappingsPath)
             .headers(headers -> headers.setBearerAuth(token))
             .retrieve()
             .body(new ParameterizedTypeReference<>() {});
+
         List<Map<String, Object>> removable = current == null ? List.of() : current.stream()
             .filter(item -> List.of("ADMIN", "USER").contains(item.get("name")))
             .toList();
+
         if (!removable.isEmpty()) {
             client.method(org.springframework.http.HttpMethod.DELETE)
                 .uri(mappingsPath)
@@ -133,11 +131,13 @@ public class KeycloakUserService {
                 .retrieve()
                 .toBodilessEntity();
         }
+
         Map<String, Object> roleRepresentation = client.get()
             .uri(adminPath("/roles/" + role))
             .headers(headers -> headers.setBearerAuth(token))
             .retrieve()
             .body(new ParameterizedTypeReference<>() {});
+
         client.post()
             .uri(mappingsPath)
             .headers(headers -> headers.setBearerAuth(token))
@@ -145,6 +145,29 @@ public class KeycloakUserService {
             .body(List.of(roleRepresentation))
             .retrieve()
             .toBodilessEntity();
+    }
+
+    private void enrichUser(Map<String, Object> user, String token) {
+        String userId = String.valueOf(user.get("id"));
+        String role = fetchUserRole(userId, token);
+        user.put("role", role);
+        Map<String, Object> attributes = attributes(user);
+        Object phone = attributes.get("phone");
+        user.put("phone", phone instanceof List<?> values && !values.isEmpty()
+            ? values.get(0)
+            : phone == null ? "" : phone);
+    }
+
+    private String fetchUserRole(String userId, String token) {
+        List<Map<String, Object>> roles = client.get()
+            .uri(adminPath("/users/" + userId + "/role-mappings/realm"))
+            .headers(headers -> headers.setBearerAuth(token))
+            .retrieve()
+            .body(new ParameterizedTypeReference<>() {});
+
+        return roles != null && roles.stream().anyMatch(item -> "ADMIN".equals(item.get("name")))
+            ? "ADMIN"
+            : "USER";
     }
 
     private String adminToken() {
@@ -170,7 +193,9 @@ public class KeycloakUserService {
     @SuppressWarnings("unchecked")
     private Map<String, Object> attributes(Map<String, Object> user) {
         Object value = user.get("attributes");
-        if (value instanceof Map<?, ?> existing) return (Map<String, Object>) existing;
+        if (value instanceof Map<?, ?> existing) {
+            return (Map<String, Object>) existing;
+        }
         Map<String, Object> attributes = new HashMap<>();
         user.put("attributes", attributes);
         return attributes;

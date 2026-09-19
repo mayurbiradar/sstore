@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../constants'
 import { STORE } from '../constants/store'
 import { useCart } from '../context/CartContext'
 import { getOrderById, type Order } from '../api/orderApi'
+import { getStoredAccessToken } from '../utils/authUtils'
 
 const formatPrice = (paise: number) =>
   `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
@@ -18,13 +19,13 @@ export default function OrderSuccess() {
   const [paymentLoading, setPaymentLoading] = useState(false)
 
   useEffect(() => {
-    if (!localStorage.getItem('accessToken')) navigate('/login')
+    if (!getStoredAccessToken()) navigate('/login')
     const params = new URLSearchParams(location.search)
     const orderIdFromQuery = params.get('order_id')
     const razorpayPaymentId = params.get('razorpay_payment_id')
     if (orderIdFromQuery && !initialOrder) {
       setPaymentLoading(true)
-      getOrderById(orderIdFromQuery, localStorage.getItem('accessToken') || undefined)
+      getOrderById(orderIdFromQuery, getStoredAccessToken() || undefined)
         .then(loaded => { setOrder(loaded); clearCart() })
         .catch(() => setOrder(null))
         .finally(() => setPaymentLoading(false))

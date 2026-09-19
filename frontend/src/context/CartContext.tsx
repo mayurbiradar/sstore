@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import * as orderApi from '../api/orderApi'
 import type { Order } from '../api/orderApi'
+import { getStoredAccessToken } from '../utils/authUtils'
 
 /**
  * In-cart line item.
@@ -176,7 +177,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }
 
   const addOrder = async (order: OrderPayload) => {
-    const token = localStorage.getItem('accessToken') || '';
+    const token = getStoredAccessToken() || '';
     const res = await orderApi.createOrder(order, token);
     setOrders(prev => [res, ...prev]);
     return res;

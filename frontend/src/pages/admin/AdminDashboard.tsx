@@ -9,7 +9,7 @@ import type { KeycloakUser, UpdateUserPayload } from '../../api/userApi';
 import * as orderApi from '../../api/orderApi';
 import type { Order } from '../../api/orderApi';
 import { API_BASE_URL } from '../../constants';
-import { checkAdminAndProceed } from '../../utils/authUtils';
+import { checkAdminAndProceed, getStoredAccessToken } from '../../utils/authUtils';
 import { ProductCardSkeleton, Skeleton, OrderCardSkeleton } from '../../components/Skeleton';
 
 const formatPrice = (paise: number) =>
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     checkAdminAndProceed(
       () => {
-        const token = localStorage.getItem('accessToken') || '';
+        const token = getStoredAccessToken() || '';
         if (activeTab === 'users') {
           userApi.getUsers(token).then(setUsers).catch(() => setUsers([])).finally(() => setTabLoading(false));
         } else if (activeTab === 'products') {
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
       return;
     }
     setUploading(true);
-    const token = localStorage.getItem('accessToken') || '';
+    const token = getStoredAccessToken() || '';
     try {
       const payload: CreateProductPayload = newImageUrl
         ? { name: newProductName, imageUrl: newImageUrl }
@@ -103,7 +103,7 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteProduct = async (product: Product) => {
-    const token = localStorage.getItem('accessToken') || '';
+    const token = getStoredAccessToken() || '';
     try {
       await productApi.deleteProduct(product.id, token);
       setProducts(prev => prev.filter(p => p.id !== product.id));
@@ -114,7 +114,7 @@ export default function AdminDashboard() {
   };
 
   const handleTransitionOrder = async (order: Order, to: string) => {
-    const token = localStorage.getItem('accessToken') || '';
+    const token = getStoredAccessToken() || '';
     try {
       const updated = await orderApi.transitionOrderStatus(order.id, to, token);
       setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));

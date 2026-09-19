@@ -33,7 +33,7 @@ export interface Product {
   currency: string;
   /** Primary image URL — relative ("/images/xxx.jpg") when served via the gateway/static dir. */
   image: string;
-  /** Denormalized average rating, kept up-to-date by review-service via Kafka. */
+  /** Denormalized average rating, kept up-to-date by the review module via Kafka. */
   avgRating: number;
   reviewCount: number;
   /** Sum of delivered order line quantities. */

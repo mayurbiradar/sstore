@@ -61,3 +61,20 @@ management:
       probes:
         enabled: true
         show-details: always
+review:
+  rating:
+    min: 1
+    max: 5
+  title:
+    minLength: 3
+    maxLength: 120
+  body:
+    minLength: 10
+    maxLength: 4000
+  moderation:
+    policy: AUTO_APPROVE
+  editWindowDays: 30
+  requirePurchase: false
+  helpfulVote:
+    enabled: true
+    requireLogin: true

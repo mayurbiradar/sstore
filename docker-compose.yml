@@ -48,7 +48,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_MULTIPLE_DATABASES: auth_db,order_db,product_db,payment_db,review_db
+      POSTGRES_MULTIPLE_DATABASES: auth_db,order_db,product_db,payment_db
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./services/postgres/init/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
@@ -105,7 +105,6 @@ services:
       - product-service
       - order-service
       - payment-service
-      - review-service
     ports:
       - "9090:9090"         # public entry point
     networks:
@@ -168,8 +167,21 @@ services:
       SERVER_PORT: 8082
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      REVIEW_MODERATION_POLICY: ${REVIEW_MODERATION_POLICY:-AUTO_APPROVE}
+      REVIEW_REQUIRE_PURCHASE: ${REVIEW_REQUIRE_PURCHASE:-true}
+      REVIEW_EDIT_WINDOW_DAYS: ${REVIEW_EDIT_WINDOW_DAYS:-30}
+      REVIEW_HELPFUL_VOTE_ENABLED: ${REVIEW_HELPFUL_VOTE_ENABLED:-true}
+      REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN: ${REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN:-true}
+      REVIEW_RATING_MIN: ${REVIEW_RATING_MIN:-1}
+      REVIEW_RATING_MAX: ${REVIEW_RATING_MAX:-5}
+      REVIEW_TITLE_MIN: ${REVIEW_TITLE_MIN:-3}
+      REVIEW_TITLE_MAX: ${REVIEW_TITLE_MAX:-120}
+      REVIEW_BODY_MIN: ${REVIEW_BODY_MIN:-10}
+      REVIEW_BODY_MAX: ${REVIEW_BODY_MAX:-4000}
     depends_on:
       - postgres
+      - redpanda
     ports:
       - "8082:8082"
     networks:
@@ -230,45 +242,6 @@ services:
       - "8084:8084"
     networks:
       - sstore-net
-
-
-  # ---------- Review Service ----------
-  review-service:
-    image: mayurb123/sstore:review-service
-    pull_policy: build
-    build: ./services/review-service
-    container_name: review-service
-    restart: on-failure
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/review_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      SERVER_PORT: 8086
-      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
-      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      # Review tuning knobs (mirror these in helm values for prod parity)
-      REVIEW_MODERATION_POLICY: ${REVIEW_MODERATION_POLICY:-AUTO_APPROVE}
-      REVIEW_REQUIRE_PURCHASE: ${REVIEW_REQUIRE_PURCHASE:-true}
-      REVIEW_EDIT_WINDOW_DAYS: ${REVIEW_EDIT_WINDOW_DAYS:-30}
-      REVIEW_HELPFUL_VOTE_ENABLED: ${REVIEW_HELPFUL_VOTE_ENABLED:-true}
-      REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN: ${REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN:-true}
-      REVIEW_RATING_MIN: ${REVIEW_RATING_MIN:-1}
-      REVIEW_RATING_MAX: ${REVIEW_RATING_MAX:-5}
-      REVIEW_TITLE_MIN: ${REVIEW_TITLE_MIN:-3}
-      REVIEW_TITLE_MAX: ${REVIEW_TITLE_MAX:-120}
-      REVIEW_BODY_MIN: ${REVIEW_BODY_MIN:-10}
-      REVIEW_BODY_MAX: ${REVIEW_BODY_MAX:-4000}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redpanda:
-        condition: service_healthy
-    ports:
-      - "8086:8086"
-    networks:
-      - sstore-net
-
   # ---------- Front‑end ----------
   frontend:
     image: mayurb123/sstore:frontend

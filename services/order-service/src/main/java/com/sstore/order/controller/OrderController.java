@@ -147,7 +147,7 @@ public class OrderController {
     /**
      * Admin status transition: PATCH /api/orders/{id}/status?to=CONFIRMED
      * The actor is recorded in order_status_history and a domain event
-     * is emitted so product-service can update sold_count, review-service
+    * is emitted so product-service can update sold_count and its review module
      * can re-check purchase verification, etc.
      */
     @PatchMapping("/{id}/status")

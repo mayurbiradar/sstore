@@ -69,20 +69,6 @@ public interface ProductRepository extends JpaRepository<Product, UUID>, JpaSpec
         """)
     Optional<Product> findBySkuForUpdate(@Param("sku") String sku);
 
-    /**
-     * Atomic aggregate update: set avg_rating and review_count in one round-trip.
-     */
-    @Modifying
-    @Query("""
-        UPDATE Product p
-           SET p.avgRating   = :avgRating,
-               p.reviewCount = :reviewCount
-         WHERE p.id = :productId
-        """)
-    int updateReviewAggregate(@Param("productId") UUID productId,
-                              @Param("avgRating") BigDecimal avgRating,
-                              @Param("reviewCount") int reviewCount);
-
     @Modifying
     @Query("""
         UPDATE Product p

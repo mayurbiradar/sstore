@@ -47,6 +47,12 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.FORBIDDEN, "FORBIDDEN", "You don't have permission to perform this action.");
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleDomainConflict(IllegalStateException e) {
+        log.warn("Domain conflict: {}", e.getMessage());
+        return body(HttpStatus.CONFLICT, "DOMAIN_CONFLICT", e.getMessage());
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, Object>> handleUploadTooLarge(MaxUploadSizeExceededException e) {
         return body(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE",

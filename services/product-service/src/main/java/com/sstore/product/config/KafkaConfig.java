@@ -4,13 +4,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties.AckMode;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
@@ -94,6 +99,25 @@ public class KafkaConfig {
         factory.setConsumerFactory(consumerFactory);
         factory.getContainerProperties().setAckMode(AckMode.MANUAL);
         return factory;
+    }
+
+    @Bean
+    public ProducerFactory<String, String> producerFactory(KafkaClientProperties props) {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, props.getBootstrapServers());
+        cfg.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        cfg.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        cfg.put(ProducerConfig.ACKS_CONFIG, "all");
+        cfg.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        cfg.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
+        cfg.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120_000);
+        cfg.put(ProducerConfig.RETRIES_CONFIG, 5);
+        return new DefaultKafkaProducerFactory<>(cfg);
+    }
+
+    @Bean
+    public KafkaTemplate<String, String> kafkaTemplate(ProducerFactory<String, String> producerFactory) {
+        return new KafkaTemplate<>(producerFactory);
     }
 
     /** Mirror of the {@code spring.kafka.*} subtree we need. */

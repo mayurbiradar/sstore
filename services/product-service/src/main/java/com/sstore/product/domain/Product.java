@@ -54,14 +54,6 @@ public class Product {
     /** Primary image URL — relative ("/images/xxx.jpg"). */
     private String image;
 
-    /** Denormalized average rating, kept up-to-date by review-service via Kafka. */
-    @Column(name = "avg_rating", nullable = false, precision = 3, scale = 2)
-    private BigDecimal avgRating = BigDecimal.ZERO;
-
-    /** Count of approved reviews. */
-    @Column(name = "review_count", nullable = false)
-    private Integer reviewCount = 0;
-
     /** Count of units sold (sum of delivered order line quantities). */
     @Column(name = "sold_count", nullable = false)
     private Integer soldCount = 0;

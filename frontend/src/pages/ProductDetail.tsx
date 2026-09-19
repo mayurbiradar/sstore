@@ -1,21 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Gem, Check, ShoppingCart, ChevronRight, Home as HomeIcon, Heart, ZoomIn, Loader2, Truck, ShieldCheck, RefreshCw, Send, ShieldCheck as VerifiedBadge, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Gem, Check, ShoppingCart, ChevronRight, Home as HomeIcon, Heart, ZoomIn, Loader2, Truck, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { useUser } from '../context/UserContext';
 import { getProduct, getVisibleProducts } from '../api/productApi';
 import type { Product } from '../api/productApi';
-import {
-  listReviewsForProduct,
-  submitReview,
-  voteHelpful,
-  type Review,
-} from '../api/reviewApi';
-import { getMyOrders, type Order } from '../api/orderApi';
 import { API_BASE_URL } from '../constants';
 import ImageZoom from '../components/ImageZoom';
-import StarRating from '../components/StarRating';
+
 
 const formatPrice = (paise: number) =>
   `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
@@ -29,46 +21,8 @@ export default function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [reviewsTotal, setReviewsTotal] = useState(0);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewError, setReviewError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  // ---- write-a-review form state ----
-  const [showForm, setShowForm] = useState(false);
-  const [formRating, setFormRating] = useState(0);
-  const [formTitle, setFormTitle] = useState('');
-  const [formBody, setFormBody] = useState('');
-  const [submittingReview, setSubmittingReview] = useState(false);
-  // ---- review-eligibility state ----
-  // `purchasedThisProduct` is true once we confirm the signed-in user has a
-  // DELIVERED order containing this product. We only fetch orders when the
-  // user is logged in.
-  const [purchasedThisProduct, setPurchasedThisProduct] = useState(false);
-  const [purchaseCheckDone, setPurchaseCheckDone] = useState(false);
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const { user } = useUser();
-
-  // True when the current user has already submitted a review for this
-  // product (in any status — PENDING / APPROVED / REJECTED). Cheap to derive
-  // from the reviews we already loaded; works because /api/reviews returns
-  // all statuses in the list response (only the storefront filters).
-  const alreadyReviewed = Boolean(
-    user?.id && reviews.some((r) => r.userId === user.id),
-  );
-
-  // Derived eligibility — true only when the user can actually write a review.
-  const canReview = Boolean(user && purchasedThisProduct && !alreadyReviewed);
-  const reviewBlockReason = !user
-    ? 'Sign in to write a review'
-    : !purchaseCheckDone
-    ? 'Checking purchase history…'
-    : alreadyReviewed
-    ? 'You have already reviewed this product'
-    : !purchasedThisProduct
-    ? 'Only customers who purchased and received this product can review it'
-    : '';
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -94,134 +48,6 @@ export default function ProductDetail() {
       fetchProduct();
     }
   }, [productId, navigate]);
-
-  useEffect(() => {
-    if (!productId) return;
-    let cancelled = false;
-    setReviewsLoading(true);
-    setReviewError(null);
-    listReviewsForProduct(productId, 0, 10)
-      .then(({ data }) => {
-        if (cancelled) return;
-        setReviews(data.content ?? []);
-        setReviewsTotal(data.totalElements ?? 0);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error('Failed to load reviews:', err);
-        setReviewError('Unable to load reviews right now.');
-      })
-      .finally(() => {
-        if (!cancelled) setReviewsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [productId]);
-
-  // ---- purchase verification for review eligibility ----
-  // A user can review a product only after their order containing it has been
-  // DELIVERED. We pull the user's own orders and check for a matching line.
-  // This runs whenever the signed-in user or product changes.
-  useEffect(() => {
-    if (!user?.id || !productId || !product?.id) {
-      setPurchasedThisProduct(false);
-      setPurchaseCheckDone(Boolean(user)); // done = true when logged out (no check needed)
-      return;
-    }
-    let cancelled = false;
-    setPurchaseCheckDone(false);
-    const token = localStorage.getItem('accessToken') || undefined;
-    getMyOrders(token)
-      .then((orders: Order[]) => {
-        if (cancelled) return;
-        const targetProductId = String(product.id);
-        const eligible = orders.some((o) =>
-          (o.status ?? '').toUpperCase() === 'DELIVERED' &&
-          Array.isArray(o.items) &&
-          o.items.some((it) => String(it.productId) === targetProductId),
-        );
-        setPurchasedThisProduct(eligible);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error('Failed to load orders for review eligibility:', err);
-        // Don't punish the user — fall back to "not eligible" so the button
-        // stays disabled but we don't leak error info into the UI.
-        setPurchasedThisProduct(false);
-      })
-      .finally(() => {
-        if (!cancelled) setPurchaseCheckDone(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, productId, product?.id]);
-
-  const handleSubmitReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const token = localStorage.getItem('accessToken') || '';
-    if (!token) {
-      setSubmitError('Please sign in to post a review.');
-      return;
-    }
-    if (formRating < 1) {
-      setSubmitError('Please pick a rating from 1 to 5 stars.');
-      return;
-    }
-    if (formTitle.trim().length < 3 || formBody.trim().length < 10) {
-      setSubmitError('Add a short title and at least 10 characters in your review.');
-      return;
-    }
-    setSubmittingReview(true);
-    setSubmitError(null);
-    try {
-      const productUuid = product?.id != null ? String(product.id) : productId!;
-      await submitReview(
-        { productId: productUuid, rating: formRating, title: formTitle.trim(), body: formBody.trim() },
-        token,
-      );
-      // Refresh the list (new review may be PENDING, so we refetch to be honest).
-      const { data } = await listReviewsForProduct(productUuid, 0, 10);
-      setReviews(data.content ?? []);
-      setReviewsTotal(data.totalElements ?? 0);
-      setShowForm(false);
-      setFormRating(0);
-      setFormTitle('');
-      setFormBody('');
-    } catch (err: unknown) {
-      console.error('Review submission failed:', err);
-      const responseError = err as { response?: { data?: { message?: string; error?: string } } };
-      const msg =
-        responseError?.response?.data?.message ??
-        responseError?.response?.data?.error ??
-        'Could not post your review.';
-      setSubmitError(msg);
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
-
-  const handleVote = async (id: string, helpful: boolean) => {
-    const token = localStorage.getItem('accessToken') || '';
-    if (!token) return;
-    try {
-      await voteHelpful(id, helpful, token);
-      setReviews((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                helpfulCount: Math.max(0, r.helpfulCount + (helpful ? 1 : 0)),
-                unhelpfulCount: Math.max(0, r.unhelpfulCount + (helpful ? 0 : 1)),
-              }
-            : r,
-        ),
-      );
-    } catch (err) {
-      console.error('Vote failed:', err);
-    }
-  };
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -368,25 +194,11 @@ export default function ProductDetail() {
                   {product.name}
                 </h1>
                 <div className="flex flex-wrap items-center gap-4 mb-4">
-                  <div className="flex items-center gap-2" data-testid="product-rating-summary">
-                    <StarRating
-                      value={product.avgRating ?? 0}
-                      size="h-5 w-5"
-                      precision="half"
-                      ariaLabel={`Average rating ${product.avgRating ?? 0} out of 5`}
-                    />
-                    <span className="text-xl font-bold text-gray-800">
-                      {(product.avgRating ?? 0).toFixed(1)}
-                    </span>
-                    <span className="text-gray-600">
-                      ({reviewsTotal || product.reviewCount || 0} reviews)
-                    </span>
-                    {product.soldCount != null && product.soldCount > 0 && (
+                  {product.soldCount != null && product.soldCount > 0 && (
                       <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                         {product.soldCount.toLocaleString('en-IN')} sold
                       </span>
                     )}
-                  </div>
                 </div>
                 <p className="text-4xl font-black text-slate-950 mb-6">
                   {formatPrice(product.price)}
@@ -550,216 +362,6 @@ export default function ProductDetail() {
         </div>
       </section>
 
-      {/* Reviews Section */}
-      <section className="py-12 px-4 bg-white/40">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <div className="text-center sm:text-left">
-              <h2 className="text-3xl font-bold text-gray-800">Customer Reviews</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                {reviewsTotal > 0
-                  ? `${reviewsTotal} verified review${reviewsTotal === 1 ? '' : 's'} from real buyers`
-                  : 'Be the first to share your thoughts on this product'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowForm((s) => !s)}
-              disabled={!canReview}
-              title={canReview ? 'Write a review' : reviewBlockReason}
-              aria-disabled={!canReview}
-              className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-3 font-bold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              <Send className="h-4 w-4" strokeWidth={2.5} />
-              {showForm ? 'Close' : 'Write a review'}
-            </button>
-            {/* Subtle helper text under the disabled button so users know why. */}
-            {!canReview && reviewBlockReason && (
-              <p className="mt-2 text-xs text-slate-500 sm:text-right">{reviewBlockReason}</p>
-            )}
-          </div>
-
-          {/* Write-a-review form */}
-          {showForm && user && (
-            <form
-              onSubmit={handleSubmitReview}
-              className="mb-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-            >
-              <h3 className="mb-4 text-lg font-bold text-slate-800">
-                Share your experience with {product.name}
-              </h3>
-              <div className="mb-4">
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Your rating
-                </label>
-                <StarRating
-                  value={formRating}
-                  onChange={setFormRating}
-                  size="h-7 w-7"
-                  ariaLabel="Your rating"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="review-title">
-                  Review title
-                </label>
-                <input
-                  id="review-title"
-                  type="text"
-                  maxLength={120}
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="Summarise your experience"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="review-body">
-                  Your review
-                </label>
-                <textarea
-                  id="review-body"
-                  rows={4}
-                  maxLength={4000}
-                  value={formBody}
-                  onChange={(e) => setFormBody(e.target.value)}
-                  placeholder="Tell other customers what you liked (or didn't)"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
-                />
-                <p className="mt-1 text-right text-xs text-slate-500">
-                  {formBody.length}/4000
-                </p>
-              </div>
-              {submitError && (
-                <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                  {submitError}
-                </p>
-              )}
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setSubmitError(null);
-                  }}
-                  className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingReview}
-                  className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50"
-                >
-                  {submittingReview ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" strokeWidth={2.5} />
-                  )}
-                  Post review
-                </button>
-              </div>
-            </form>
-          )}
-
-          {reviewError && (
-            <p className="mb-6 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {reviewError}
-            </p>
-          )}
-
-          {reviewsLoading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-40 animate-pulse rounded-2xl bg-white/60" />
-              ))}
-            </div>
-          ) : reviews.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-              <p className="text-slate-600">
-                No reviews yet. Once customers share their experience, you'll see them here.
-              </p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {reviews.map((review) => {
-                // Display name: prefer the captured first/last from Keycloak.
-                // Falls back to "Customer · <id prefix>" for legacy reviews.
-                const first = (review.reviewerFirstName ?? '').trim();
-                const last = (review.reviewerLastName ?? '').trim();
-                let displayName: string;
-                let initials: string;
-                if (first || last) {
-                    displayName = last ? `${first} ${last.charAt(0).toUpperCase()}.` : first;
-                    initials = (first.charAt(0) || (review.userId ?? 'A').charAt(0)).toUpperCase();
-                } else {
-                    displayName = `Customer · ${(review.userId ?? '').slice(0, 6)}`;
-                    initials = (review.userId ?? 'A').slice(0, 1).toUpperCase();
-                }
-                return (
-                  <article
-                    key={review.id}
-                    className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg"
-                  >
-                    <header className="mb-3 flex items-center gap-2">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 font-bold text-rose-700">
-                        {initials}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-800">
-                          {displayName}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <StarRating
-                            value={review.rating}
-                            size="h-3.5 w-3.5"
-                            precision="full"
-                            ariaLabel={`Rated ${review.rating} of 5`}
-                          />
-                          {review.verifiedPurchase && (
-                            <span
-                              title="Verified purchase"
-                              className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700"
-                            >
-                              <VerifiedBadge className="h-3 w-3" strokeWidth={2.5} />
-                              Verified
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </header>
-                    <h3 className="mb-1 font-bold text-slate-800">{review.title}</h3>
-                    <p className="mb-3 text-gray-600">{review.body}</p>
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <span>{new Date(review.createdAt).toLocaleDateString()}</span>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => handleVote(review.id, true)}
-                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                          title="Helpful"
-                        >
-                          <ThumbsUp className="h-3 w-3" strokeWidth={2.5} />
-                          {review.helpfulCount}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleVote(review.id, false)}
-                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
-                          title="Not helpful"
-                        >
-                          <ThumbsDown className="h-3 w-3" strokeWidth={2.5} />
-                          {review.unhelpfulCount}
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
 
       {/* Related Products */}
       {relatedProducts.length > 0 && (

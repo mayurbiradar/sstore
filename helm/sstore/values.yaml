@@ -32,7 +32,6 @@ postgres:
     - order_db
     - product_db
     - payment_db
-    - review_db
 
 keycloak:
   image: quay.io/keycloak/keycloak:26.3
@@ -49,6 +48,17 @@ services:
     port: 8082
     replicas: 1
     database: product_db
+    moderationPolicy: AUTO_APPROVE
+    requirePurchase: true
+    editWindowDays: 30
+    helpfulVoteEnabled: true
+    helpfulVoteRequireLogin: true
+    ratingMin: 1
+    ratingMax: 5
+    titleMin: 3
+    titleMax: 120
+    bodyMin: 10
+    bodyMax: 4000
     resources:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}
@@ -77,25 +87,6 @@ services:
     image: mayurb123/sstore:api-gateway
     port: 9090
     replicas: 1
-    resources:
-      requests: {cpu: 250m, memory: 512Mi}
-      limits: {cpu: "1", memory: 1Gi}
-  review-service:
-    image: mayurb123/sstore:review-service
-    port: 8086
-    replicas: 1
-    database: review_db
-    moderationPolicy: AUTO_APPROVE      # AUTO_APPROVE | ALWAYS_PENDING | ALWAYS_APPROVE
-    requirePurchase: true
-    editWindowDays: 30
-    helpfulVoteEnabled: true
-    helpfulVoteRequireLogin: true
-    ratingMin: 1
-    ratingMax: 5
-    titleMin: 3
-    titleMax: 120
-    bodyMin: 10
-    bodyMax: 4000
     resources:
       requests: {cpu: 250m, memory: 512Mi}
       limits: {cpu: "1", memory: 1Gi}

@@ -48,11 +48,7 @@ spring:
               predicates:
                 - Path=/api/payments/**
 
-            # ---------- Review Service -----------------------------
-            - id: review-service
-              uri: ${REVIEW_SERVICE_URL:http://localhost:8086}
-              predicates:
-                - Path=/api/reviews/**
+
 
 # ---------------------------------------------------------------
 # Logging

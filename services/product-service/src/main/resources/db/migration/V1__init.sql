@@ -50,8 +50,6 @@ CREATE TABLE IF NOT EXISTS products (
     taxable             boolean NOT NULL DEFAULT true,
 
     image               text,                       -- primary image URL (denormalised)
-    avg_rating          numeric(3,2) NOT NULL DEFAULT 0 CHECK (avg_rating >= 0 AND avg_rating <= 5),
-    review_count        integer NOT NULL DEFAULT 0 CHECK (review_count >= 0),
     sold_count          integer NOT NULL DEFAULT 0 CHECK (sold_count >= 0),
 
     stock               integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
@@ -108,8 +106,11 @@ CREATE TABLE IF NOT EXISTS event_outbox (
     topic           text NOT NULL,
     payload         jsonb NOT NULL,
     headers         jsonb NOT NULL DEFAULT '{}'::jsonb,
+    message_key     text NOT NULL,
     created_at      timestamptz NOT NULL DEFAULT now(),
-    published_at    timestamptz
+    published_at    timestamptz,
+    attempt_count   integer NOT NULL DEFAULT 0,
+    last_error      text
 );
 
 CREATE INDEX IF NOT EXISTS idx_event_outbox_pending

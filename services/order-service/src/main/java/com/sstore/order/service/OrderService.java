@@ -173,7 +173,7 @@ public class OrderService {
 
             // Emit domain event. Downstream:
             //   - product-service uses DELIVERED to bump sold_count
-            //   - review-service uses DELIVERED for purchase verification
+            //   - the product review module uses DELIVERED for purchase verification
             Map<String, Object> payload = Map.of(
                 "eventType", "Order" + titleCase(toStatus),
                 "orderId", o.getId().toString(),

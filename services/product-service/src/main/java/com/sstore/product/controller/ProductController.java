@@ -162,6 +162,7 @@ public class ProductController {
     @PostMapping(value = "/create-with-image", consumes = {"multipart/form-data"})
     public ResponseEntity<Product> createWithImage(
             @RequestParam("name") String name,
+            @RequestParam(value = "imageUrl", required = false) String imageUrl,
             @RequestPart(value = "file", required = false) MultipartFile file,
             @RequestPart(value = "files", required = false) List<MultipartFile> files
     ) throws IOException {
@@ -176,19 +177,23 @@ public class ProductController {
                 if (f != null && !f.isEmpty()) allFiles.add(f);
             }
         }
-        if (allFiles.isEmpty()) {
+        if (allFiles.isEmpty() && (imageUrl == null || imageUrl.isBlank())) {
             throw new IllegalArgumentException("At least one image file is required");
         }
 
         // Write every image to disk. The first one is the primary.
         String primaryUrl = null;
-        for (MultipartFile f : allFiles) {
-            String filename = UUID.randomUUID() + "-" + sanitizeFilename(f.getOriginalFilename());
-            Path imagePath = Paths.get("src/main/resources/static/images", filename);
-            Files.createDirectories(imagePath.getParent());
-            Files.write(imagePath, f.getBytes());
-            String url = "/images/" + filename;
-            if (primaryUrl == null) primaryUrl = url;
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            primaryUrl = imageUrl;
+        } else {
+            for (MultipartFile f : allFiles) {
+                String filename = UUID.randomUUID() + "-" + sanitizeFilename(f.getOriginalFilename());
+                Path imagePath = Paths.get("src/main/resources/static/images", filename);
+                Files.createDirectories(imagePath.getParent());
+                Files.write(imagePath, f.getBytes());
+                String url = "/images/" + filename;
+                if (primaryUrl == null) primaryUrl = url;
+            }
         }
 
         Product p = new Product();

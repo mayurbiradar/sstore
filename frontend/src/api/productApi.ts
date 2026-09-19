@@ -145,6 +145,7 @@ export interface CreateProductPayload {
   name: string;
   /** Single primary image (first picked becomes products.image). */
   image?: File;
+  imageUrl?: string;
   /** Additional images, all written to /images; first one is primary. */
   images?: File[];
 }
@@ -172,6 +173,7 @@ export interface UpdateProductPayload {
 export const createProductWithImage = (payload: CreateProductPayload, token?: string) => {
   const form = new FormData();
   form.append('name', payload.name);
+  if (payload.imageUrl) form.append('imageUrl', payload.imageUrl);
   if (payload.image) form.append('file', payload.image);
   if (payload.images && payload.images.length > 0) {
     payload.images.forEach(f => form.append('files', f));

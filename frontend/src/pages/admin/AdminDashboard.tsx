@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'users' | 'orders'>('dashboard');
   const [showAddProductForm, setShowAddProductForm] = useState(false);
   const [newProductName, setNewProductName] = useState('');
+  const [newImageUrl, setNewImageUrl] = useState('');
   const [newProductFiles, setNewProductFiles] = useState<FileList | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,23 +75,19 @@ export default function AdminDashboard() {
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const files = newProductFiles;
-    if (!files || files.length === 0) {
-      toast.error('Pick at least one image');
+    if (!newImageUrl && (!newProductFiles || newProductFiles.length === 0)) {
+      toast.error('Pick at least one image or provide URL');
       return;
     }
     setUploading(true);
     const token = localStorage.getItem('accessToken') || '';
     try {
-      const payload: CreateProductPayload = {
-        name: newProductName,
-        // Backend requires name + 1+ image. First image is the primary;
-        // extras are written to disk but not yet tied to a row.
-        image: files[0],
-        images: Array.from(files),
-      };
+      const payload: CreateProductPayload = newImageUrl
+        ? { name: newProductName, imageUrl: newImageUrl }
+        : { name: newProductName, image: newProductFiles![0], images: Array.from(newProductFiles!) };
       await productApi.createProductWithImage(payload, token);
       setNewProductName('');
+      setNewImageUrl('');
       setNewProductFiles(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       setShowAddProductForm(false);
@@ -229,10 +226,13 @@ export default function AdminDashboard() {
                     onChange={e => setNewProductName(e.target.value)}
                     className="w-full rounded-lg border-2 border-slate-200 px-4 py-3 focus:border-rose-500 focus:outline-none"
                     required />
+                  <input type="url" placeholder="Image URL (optional)" value={newImageUrl}
+                    onChange={e => setNewImageUrl(e.target.value)}
+                    className="w-full rounded-lg border-2 border-slate-200 px-4 py-3 focus:border-rose-500 focus:outline-none" />
                   <input type="file" accept="image/*" multiple ref={fileInputRef}
                     onChange={e => setNewProductFiles(e.target.files)}
                     className="w-full rounded-lg border-2 border-slate-200 px-4 py-3 focus:border-rose-500 focus:outline-none"
-                    required />
+                    required={!newImageUrl} />
                   {newProductFiles && newProductFiles.length > 0 && (
                     <p className="text-xs text-slate-500">
                       {newProductFiles.length} image{newProductFiles.length === 1 ? '' : 's'} selected — first one becomes the primary image.

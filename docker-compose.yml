@@ -145,6 +145,8 @@ services:
       KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      GOOGLE_CLIENT_ID: ${VITE_KEYCLOAK_GOOGLE_IDP_HINT} 
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     volumes:
       - ./services/keycloak/bootstrap.sh:/bootstrap.sh:ro
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
@@ -168,17 +170,6 @@ services:
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      REVIEW_MODERATION_POLICY: ${REVIEW_MODERATION_POLICY:-AUTO_APPROVE}
-      REVIEW_REQUIRE_PURCHASE: ${REVIEW_REQUIRE_PURCHASE:-true}
-      REVIEW_EDIT_WINDOW_DAYS: ${REVIEW_EDIT_WINDOW_DAYS:-30}
-      REVIEW_HELPFUL_VOTE_ENABLED: ${REVIEW_HELPFUL_VOTE_ENABLED:-true}
-      REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN: ${REVIEW_HELPFUL_VOTE_REQUIRE_LOGIN:-true}
-      REVIEW_RATING_MIN: ${REVIEW_RATING_MIN:-1}
-      REVIEW_RATING_MAX: ${REVIEW_RATING_MAX:-5}
-      REVIEW_TITLE_MIN: ${REVIEW_TITLE_MIN:-3}
-      REVIEW_TITLE_MAX: ${REVIEW_TITLE_MAX:-120}
-      REVIEW_BODY_MIN: ${REVIEW_BODY_MIN:-10}
-      REVIEW_BODY_MAX: ${REVIEW_BODY_MAX:-4000}
     depends_on:
       - postgres
       - redpanda
@@ -264,8 +255,6 @@ services:
       keycloak-bootstrap:
         condition: service_completed_successfully
     ports:
-      # "5173:5173"           # Vite dev server
-      # Uncomment below for a prod build that serves static files on port 80
       - "80:80"
     networks:
       - sstore-net

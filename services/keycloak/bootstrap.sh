@@ -60,4 +60,59 @@ else
         -d "$CLIENT_PAYLOAD" >/dev/null
 fi
 
+curl -fsS -X POST "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/roles" \
+  -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
+  -d '{"name":"ADMIN"}' >/dev/null || true
+
+
+# =====================================================================
+# STEP 2a: Define Google Identity Provider Variables & Payload
+# =====================================================================
+IDP_ALIAS="google"
+
+# We safely extract the Client ID and Secret passed from your compose environment
+GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}"
+GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}"
+
+if [ -z "$GOOGLE_CLIENT_ID" ] || [ -z "$GOOGLE_CLIENT_SECRET" ]; then
+    printf 'WARNING: Google Identity Provider environment variables are missing. Skipping IdP setup.\n'
+else
+    IDP_PAYLOAD="{
+      \"alias\": \"${IDP_ALIAS}\",
+      \"displayName\": \"Google\",
+      \"providerId\": \"google\",
+      \"enabled\": true,
+      \"trustEmail\": true,
+      \"storeToken\": false,
+      \"addReadTokenRoleOnCreate\": true,
+      \"authenticateByDefault\": false,
+      \"firstBrokerLoginFlowAlias\": \"first broker login\",
+      \"config\": {
+        \"clientId\": \"${GOOGLE_CLIENT_ID}\",
+        \"clientSecret\": \"${GOOGLE_CLIENT_SECRET}\",
+        \"useJwksUrl\": \"true\"
+      }
+    }"
+
+    # =====================================================================
+    # STEP 2b: Send API request to Keycloak to check and update/create
+    # =====================================================================
+    if curl -fsS -o /dev/null -w '%{http_code}' \
+        -H "Authorization: Bearer ${TOKEN}" \
+        "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/identity-provider/instances/${IDP_ALIAS}" | grep -q '^200$'; then
+        printf 'Google IdP exists. Updating configuration...\n'
+        curl -fsS -X PUT "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/identity-provider/instances/${IDP_ALIAS}" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "$IDP_PAYLOAD" >/dev/null
+    else
+        printf 'Creating Google IdP...\n'
+        curl -fsS -X POST "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/identity-provider/instances" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "$IDP_PAYLOAD" >/dev/null
+    fi
+fi
+
+
 printf 'Keycloak realm and frontend client are ready.\n'

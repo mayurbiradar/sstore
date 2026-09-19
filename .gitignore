@@ -3,8 +3,6 @@
 
 # Environment files
 .env
-.env.*
-!.env.example
 
 # Local TLS certificates and keys
 k8s/tls/*

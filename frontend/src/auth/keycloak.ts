@@ -18,6 +18,15 @@ export const keycloak = isKeycloakConfigured
     })
   : null;
 
+if (keycloak && !usePkce) {
+  const httpKeycloak = keycloak as Keycloak & {
+    pkceMethod?: false;
+    flow?: 'implicit';
+  };
+  httpKeycloak.pkceMethod = false;
+  httpKeycloak.flow = 'implicit';
+}
+
 export const googleIdentityProvider =
   import.meta.env.VITE_KEYCLOAK_GOOGLE_IDP_HINT || 'google';
 

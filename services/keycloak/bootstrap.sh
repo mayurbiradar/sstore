@@ -7,6 +7,13 @@ KEYCLOAK_REALM="${KEYCLOAK_REALM:-sstore}"
 KEYCLOAK_CLIENT_ID="${KEYCLOAK_CLIENT_ID:-sstore-frontend}"
 ADMIN_USERNAME="${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}"
+KEYCLOAK_REALM_DISPLAY_NAME="${KEYCLOAK_REALM_DISPLAY_NAME:-Sstore Realm}"
+KEYCLOAK_REGISTRATION_ALLOWED="${KEYCLOAK_REGISTRATION_ALLOWED:-true}"
+KEYCLOAK_RESET_PASSWORD_ALLOWED="${KEYCLOAK_RESET_PASSWORD_ALLOWED:-true}"
+KEYCLOAK_REMEMBER_ME="${KEYCLOAK_REMEMBER_ME:-true}"
+KEYCLOAK_VERIFY_EMAIL="${KEYCLOAK_VERIFY_EMAIL:-false}"
+KEYCLOAK_REDIRECT_URIS="${KEYCLOAK_REDIRECT_URIS:-http://localhost,http://localhost/*,http://localhost:5173/*}"
+KEYCLOAK_WEB_ORIGINS="${KEYCLOAK_WEB_ORIGINS:-http://localhost,http://localhost:5173}"
 
 printf 'Waiting for Keycloak...\n'
 until curl -fsS "${KEYCLOAK_URL}/realms/master/.well-known/openid-configuration" >/dev/null; do
@@ -26,7 +33,7 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
-REALM_PAYLOAD="{\"realm\":\"${KEYCLOAK_REALM}\",\"enabled\":true,\"displayName\":\"Sstore Realm\",\"registrationAllowed\":true,\"registrationEmailAsUsername\":false,\"resetPasswordAllowed\":true,\"rememberMe\":true,\"verifyEmail\":false}"
+REALM_PAYLOAD="{\"realm\":\"${KEYCLOAK_REALM}\",\"enabled\":true,\"displayName\":\"${KEYCLOAK_REALM_DISPLAY_NAME}\",\"registrationAllowed\":${KEYCLOAK_REGISTRATION_ALLOWED},\"registrationEmailAsUsername\":false,\"resetPasswordAllowed\":${KEYCLOAK_RESET_PASSWORD_ALLOWED},\"rememberMe\":${KEYCLOAK_REMEMBER_ME},\"verifyEmail\":${KEYCLOAK_VERIFY_EMAIL}}"
 
 if curl -fsS -o /dev/null -w '%{http_code}' \
     -H "Authorization: Bearer ${TOKEN}" \
@@ -42,7 +49,9 @@ else
         -d "$REALM_PAYLOAD" >/dev/null
 fi
 
-CLIENT_PAYLOAD='{"clientId":"sstore-frontend","enabled":true,"publicClient":true,"redirectUris":["http://localhost","http://localhost/*","http://localhost:5173/*"],"webOrigins":["http://localhost","http://localhost:5173"]}'
+REDIRECT_URIS_JSON=$(echo "$KEYCLOAK_REDIRECT_URIS" | tr ',' '\n' | sed 's/^/"/; s/$/"/' | tr '\n' ',' | sed 's/,$//')
+WEB_ORIGINS_JSON=$(echo "$KEYCLOAK_WEB_ORIGINS" | tr ',' '\n' | sed 's/^/"/; s/$/"/' | tr '\n' ',' | sed 's/,$//')
+CLIENT_PAYLOAD="{\"clientId\":\"${KEYCLOAK_CLIENT_ID}\",\"enabled\":true,\"publicClient\":true,\"redirectUris\":[${REDIRECT_URIS_JSON}],\"webOrigins\":[${WEB_ORIGINS_JSON}]}"
 CLIENT_ID="$(curl -fsS \
     -H "Authorization: Bearer ${TOKEN}" \
     "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/clients?clientId=${KEYCLOAK_CLIENT_ID}" \

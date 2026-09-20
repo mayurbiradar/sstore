@@ -28,7 +28,7 @@ postgres:
   storage: 5Gi
   defaultDatabase: default_db
   databases:
-    - auth_db
+    - keycloak_db
     - order_db
     - product_db
     - payment_db

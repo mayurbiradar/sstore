@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # One database per bounded context. Each service owns its schema, no cross-service joins.
-for database in auth_db order_db product_db payment_db; do
+for database in keycloak_db order_db product_db payment_db; do
   if [[ "${POSTGRES_DB:-}" != "$database" ]]; then
     printf 'Creating database %s\n' "$database"
     psql --username "$POSTGRES_USER" --dbname "${POSTGRES_DB:-postgres}" --set ON_ERROR_STOP=on \

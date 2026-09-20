@@ -21,7 +21,7 @@ metadata:
     {{- include "sstore.labels" . | nindent 4 }}
 data:
   KC_DB: postgres
-  KC_DB_URL: jdbc:postgresql://postgres:5432/auth_db
+  KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
   KC_HEALTH_ENABLED: "true"
   KC_HOSTNAME: {{ .Values.keycloak.hostname | quote }}
   KC_HOSTNAME_STRICT: "false"

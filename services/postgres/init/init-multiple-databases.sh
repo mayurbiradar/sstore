@@ -11,7 +11,7 @@ set -Eeuo pipefail
 # newline; the final `x` trick trims any leftover whitespace so we don't end
 # up with phantom empty entries that CREATE DATABASE would skip (silently
 # hiding misconfigured deployments).
-IFS=',' read -r -a databases <<<"${POSTGRES_MULTIPLE_DATABASES:-auth_db,order_db,product_db,payment_db}
+IFS=',' read -r -a databases <<<"${POSTGRES_MULTIPLE_DATABASES:-keycloak_db,order_db,product_db,payment_db}
 x"
 
 for database in "${databases[@]}"; do

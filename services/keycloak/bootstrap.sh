@@ -12,6 +12,7 @@ KEYCLOAK_REGISTRATION_ALLOWED="${KEYCLOAK_REGISTRATION_ALLOWED:-true}"
 KEYCLOAK_RESET_PASSWORD_ALLOWED="${KEYCLOAK_RESET_PASSWORD_ALLOWED:-true}"
 KEYCLOAK_REMEMBER_ME="${KEYCLOAK_REMEMBER_ME:-true}"
 KEYCLOAK_VERIFY_EMAIL="${KEYCLOAK_VERIFY_EMAIL:-false}"
+KEYCLOAK_SSL_REQUIRED="${KEYCLOAK_SSL_REQUIRED:-NONE}"
 KEYCLOAK_REDIRECT_URIS="${KEYCLOAK_REDIRECT_URIS:-http://localhost,http://localhost/*,http://localhost:5173/*}"
 KEYCLOAK_WEB_ORIGINS="${KEYCLOAK_WEB_ORIGINS:-http://localhost,http://localhost:5173}"
 
@@ -33,7 +34,13 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
-REALM_PAYLOAD="{\"realm\":\"${KEYCLOAK_REALM}\",\"enabled\":true,\"displayName\":\"${KEYCLOAK_REALM_DISPLAY_NAME}\",\"registrationAllowed\":${KEYCLOAK_REGISTRATION_ALLOWED},\"registrationEmailAsUsername\":false,\"resetPasswordAllowed\":${KEYCLOAK_RESET_PASSWORD_ALLOWED},\"rememberMe\":${KEYCLOAK_REMEMBER_ME},\"verifyEmail\":${KEYCLOAK_VERIFY_EMAIL}}"
+MASTER_REALM_PAYLOAD="{\"sslRequired\":\"${KEYCLOAK_SSL_REQUIRED}\"}"
+curl -fsS -X PUT "${KEYCLOAK_URL}/admin/realms/master" \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H 'Content-Type: application/json' \
+    -d "$MASTER_REALM_PAYLOAD" >/dev/null
+
+REALM_PAYLOAD="{\"realm\":\"${KEYCLOAK_REALM}\",\"enabled\":true,\"displayName\":\"${KEYCLOAK_REALM_DISPLAY_NAME}\",\"registrationAllowed\":${KEYCLOAK_REGISTRATION_ALLOWED},\"registrationEmailAsUsername\":false,\"resetPasswordAllowed\":${KEYCLOAK_RESET_PASSWORD_ALLOWED},\"rememberMe\":${KEYCLOAK_REMEMBER_ME},\"verifyEmail\":${KEYCLOAK_VERIFY_EMAIL},\"sslRequired\":\"${KEYCLOAK_SSL_REQUIRED}\"}"
 
 if curl -fsS -o /dev/null -w '%{http_code}' \
     -H "Authorization: Bearer ${TOKEN}" \

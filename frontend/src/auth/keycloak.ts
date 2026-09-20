@@ -3,6 +3,7 @@ import Keycloak from 'keycloak-js';
 const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL;
 const keycloakRealm = import.meta.env.VITE_KEYCLOAK_REALM;
 const keycloakClientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
+const usePkce = import.meta.env.VITE_KEYCLOAK_USE_PKCE !== 'false';
 
 export const isKeycloakConfigured = Boolean(
   keycloakUrl && keycloakRealm && keycloakClientId,
@@ -25,8 +26,8 @@ export async function initializeKeycloak() {
   try {
     return await keycloak.init({
       onLoad: 'check-sso',
-      pkceMethod: 'S256',
       checkLoginIframe: false,
+      ...(usePkce ? { pkceMethod: 'S256' as const } : {}),
     });
   } catch (error) {
     console.error('Keycloak initialization failed', error);

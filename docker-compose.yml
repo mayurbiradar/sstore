@@ -194,6 +194,7 @@ services:
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL}
     depends_on:
       postgres:
         condition: service_healthy

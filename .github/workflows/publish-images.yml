@@ -11,8 +11,7 @@ permissions:
 
 env:
   REGISTRY_IMAGE: mayurb123/sstore
-  VITE_API_GATEWAY_ENDPOINT: https://api.52-66-251-122.sslip.io
-  VITE_KEYCLOAK_URL: https://auth.52-66-251-122.sslip.io
+  AWS_HOSTNAME: ${{ vars.AWS_HOSTNAME }}
   VITE_KEYCLOAK_REALM: sstore
   VITE_KEYCLOAK_CLIENT_ID: sstore-frontend
   VITE_KEYCLOAK_GOOGLE_IDP_HINT: google
@@ -78,8 +77,8 @@ jobs:
           provenance: false
           tags: ${{ env.REGISTRY_IMAGE }}:frontend
           build-args: |
-            VITE_API_GATEWAY_ENDPOINT=${{ env.VITE_API_GATEWAY_ENDPOINT }}
-            VITE_KEYCLOAK_URL=${{ env.VITE_KEYCLOAK_URL }}
+            VITE_API_GATEWAY_ENDPOINT=https://api.${{ env.AWS_HOSTNAME }}
+            VITE_KEYCLOAK_URL=https://auth.${{ env.AWS_HOSTNAME }}
             VITE_KEYCLOAK_REALM=${{ env.VITE_KEYCLOAK_REALM }}
             VITE_KEYCLOAK_CLIENT_ID=${{ env.VITE_KEYCLOAK_CLIENT_ID }}
             VITE_KEYCLOAK_GOOGLE_IDP_HINT=${{ env.VITE_KEYCLOAK_GOOGLE_IDP_HINT }}

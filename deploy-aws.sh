@@ -4,13 +4,15 @@ set -Eeuo pipefail
 
 KEY_FILE="${KEY_FILE:-./sstore.pem}"
 EC2_USER="${EC2_USER:-ubuntu}"
-EC2_HOST="${EC2_HOST:-52.66.251.122}"
+AWS_PUBLIC_IP="${AWS_PUBLIC_IP:-52.66.251.122}"
+EC2_HOST="${EC2_HOST:-$AWS_PUBLIC_IP}"
 REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu}"
 SSH_TARGET="${EC2_USER}@${EC2_HOST}"
+AWS_HOSTNAME="${AWS_HOSTNAME:-$(printf '%s' "$EC2_HOST" | tr '.' '-')}.sslip.io"
 
-FRONTEND_HOST="store.52-66-251-122.sslip.io"
-API_HOST="api.52-66-251-122.sslip.io"
-AUTH_HOST="auth.52-66-251-122.sslip.io"
+FRONTEND_HOST="store.${AWS_HOSTNAME}"
+API_HOST="api.${AWS_HOSTNAME}"
+AUTH_HOST="auth.${AWS_HOSTNAME}"
 
 require_file() {
     [[ -f "$1" ]] || { echo "Missing required file: $1" >&2; exit 1; }
@@ -38,6 +40,7 @@ ssh -i "$KEY_FILE" "$SSH_TARGET" "bash -s" <<REMOTE_SCRIPT
 set -Eeuo pipefail
 cd '${REMOTE_DIR}'
 
+mv .env.aws .env
 chmod 600 .env
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -59,16 +62,16 @@ if ! docker info >/dev/null 2>&1; then DOCKER=(sudo docker); fi
 
 "\${DOCKER[@]}" compose --env-file .env -f docker-compose.aws.yml stop frontend >/dev/null 2>&1 || true
 
-sudo tee /etc/caddy/Caddyfile >/dev/null <<'CADDYFILE'
-store.52-66-251-122.sslip.io {
+sudo tee /etc/caddy/Caddyfile >/dev/null <<CADDYFILE
+${FRONTEND_HOST} {
     reverse_proxy 127.0.0.1:8088
 }
 
-api.52-66-251-122.sslip.io {
+${API_HOST} {
     reverse_proxy 127.0.0.1:9090
 }
 
-auth.52-66-251-122.sslip.io {
+${AUTH_HOST} {
     reverse_proxy 127.0.0.1:8080
 }
 CADDYFILE
@@ -88,4 +91,3 @@ echo "Frontend: https://${FRONTEND_HOST}"
 echo "API:      https://${API_HOST}"
 echo "Keycloak: https://${AUTH_HOST}/admin/master/console/"
 REMOTE_SCRIPT
-    reverse_proxy 127.0.0.1:9090

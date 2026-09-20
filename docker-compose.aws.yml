@@ -124,6 +124,7 @@ services:
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      OTEL_SDK_DISABLED: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,6 +147,8 @@ services:
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL}
+      OTEL_SDK_DISABLED: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -172,6 +175,7 @@ services:
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
       RAZORPAY_CURRENCY: ${RAZORPAY_CURRENCY:-INR}
       RAZORPAY_COMPANY_NAME: ${RAZORPAY_COMPANY_NAME:-SStore}
+      OTEL_SDK_DISABLED: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -197,6 +201,7 @@ services:
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      OTEL_SDK_DISABLED: "true"
     depends_on:
       product-service:
         condition: service_started

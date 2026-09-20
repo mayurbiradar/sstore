@@ -4,15 +4,7 @@ set -Eeuo pipefail
 
 KEY_FILE="${KEY_FILE:-./sstore.pem}"
 EC2_USER="${EC2_USER:-ubuntu}"
-AWS_PUBLIC_IP="${AWS_PUBLIC_IP:-52.66.251.122}"
-EC2_HOST="${EC2_HOST:-$AWS_PUBLIC_IP}"
 REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu}"
-SSH_TARGET="${EC2_USER}@${EC2_HOST}"
-AWS_HOSTNAME="${AWS_HOSTNAME:-$(printf '%s' "$EC2_HOST" | tr '.' '-')}.sslip.io"
-
-FRONTEND_HOST="store.${AWS_HOSTNAME}"
-API_HOST="api.${AWS_HOSTNAME}"
-AUTH_HOST="auth.${AWS_HOSTNAME}"
 
 require_file() {
     [[ -f "$1" ]] || { echo "Missing required file: $1" >&2; exit 1; }
@@ -23,6 +15,17 @@ require_file .env.aws
 require_file docker-compose.aws.yml
 require_file services/keycloak/bootstrap.sh
 require_file services/postgres/init/init-multiple-databases.sh
+
+FILE_PUBLIC_IP="$(sed -n 's/^AWS_PUBLIC_IP=//p' .env.aws | head -n 1)"
+FILE_HOSTNAME="$(sed -n 's/^AWS_HOSTNAME=//p' .env.aws | head -n 1)"
+AWS_PUBLIC_IP="${AWS_PUBLIC_IP:-${FILE_PUBLIC_IP:-52.66.251.122}}"
+EC2_HOST="${EC2_HOST:-$AWS_PUBLIC_IP}"
+AWS_HOSTNAME="${AWS_HOSTNAME:-${FILE_HOSTNAME:-$(printf '%s' "$EC2_HOST" | tr '.' '-').sslip.io}}"
+SSH_TARGET="${EC2_USER}@${EC2_HOST}"
+
+FRONTEND_HOST="store.${AWS_HOSTNAME}"
+API_HOST="api.${AWS_HOSTNAME}"
+AUTH_HOST="auth.${AWS_HOSTNAME}"
 
 chmod 400 "$KEY_FILE"
 

@@ -47,13 +47,8 @@ public class SecurityConfig {
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
-		config.setAllowedOriginPatterns(Arrays.asList(
-				"https://app.sstore.local",
-				"https://api.sstore.local",
-				"https://*.sstore.local",
-				"http://localhost",
-				"http://localhost:5173"
-		));
+		String allowedOrigins = System.getenv().getOrDefault("CORS_ALLOWED_ORIGINS", "https://app.sstore.local,https://api.sstore.local,https://*.sstore.local,http://localhost,http://localhost:5173");
+		config.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
 		config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(Arrays.asList("*"));
 		config.setAllowCredentials(true);

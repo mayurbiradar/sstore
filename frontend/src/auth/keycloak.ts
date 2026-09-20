@@ -27,7 +27,7 @@ export async function initializeKeycloak() {
     return await keycloak.init({
       onLoad: 'check-sso',
       checkLoginIframe: false,
-      ...(usePkce ? { pkceMethod: 'S256' as const } : {}),
+      pkceMethod: usePkce ? 'S256' : false,
     });
   } catch (error) {
     console.error('Keycloak initialization failed', error);

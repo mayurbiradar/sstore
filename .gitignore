@@ -3,6 +3,7 @@
 
 # Environment files
 .env
+.env.aws
 
 # Local TLS certificates and keys
 k8s/tls/*

@@ -58,7 +58,7 @@ fi
 
 REDIRECT_URIS_JSON=$(echo "$KEYCLOAK_REDIRECT_URIS" | tr ',' '\n' | sed 's/^/"/; s/$/"/' | tr '\n' ',' | sed 's/,$//')
 WEB_ORIGINS_JSON=$(echo "$KEYCLOAK_WEB_ORIGINS" | tr ',' '\n' | sed 's/^/"/; s/$/"/' | tr '\n' ',' | sed 's/,$//')
-CLIENT_PAYLOAD="{\"clientId\":\"${KEYCLOAK_CLIENT_ID}\",\"enabled\":true,\"publicClient\":true,\"redirectUris\":[${REDIRECT_URIS_JSON}],\"webOrigins\":[${WEB_ORIGINS_JSON}]}"
+CLIENT_PAYLOAD="{\"clientId\":\"${KEYCLOAK_CLIENT_ID}\",\"enabled\":true,\"publicClient\":true,\"standardFlowEnabled\":true,\"implicitFlowEnabled\":false,\"redirectUris\":[${REDIRECT_URIS_JSON}],\"webOrigins\":[${WEB_ORIGINS_JSON}]}"
 CLIENT_ID="$(curl -fsS \
     -H "Authorization: Bearer ${TOKEN}" \
     "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/clients?clientId=${KEYCLOAK_CLIENT_ID}" \

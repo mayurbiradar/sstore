@@ -11,7 +11,7 @@ permissions:
 
 env:
   REGISTRY_IMAGE: mayurb123/sstore
-  AWS_HOSTNAME: ${{ vars.AWS_HOSTNAME || '3-110-217-46.sslip.io' }}
+  AWS_HOSTNAME: ${{ vars.AWS_HOSTNAME || '3-110-28-125.sslip.io' }}
   VITE_KEYCLOAK_REALM: sstore
   VITE_KEYCLOAK_CLIENT_ID: sstore-frontend
   VITE_KEYCLOAK_GOOGLE_IDP_HINT: google

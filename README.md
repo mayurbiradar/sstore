@@ -16,6 +16,7 @@ Install and start Docker Desktop first. It provides the Docker engine required b
 For Docker Compose:
 
 - Docker Desktop with Docker Compose v2
+- Doppler CLI (when using Doppler-managed environment variables)
 
 For Kubernetes:
 
@@ -35,12 +36,33 @@ brew install kubectl kind curl mkcert
 
 Compose runs the application over HTTP using `localhost`. It builds all application images locally and automatically creates the Keycloak `sstore` realm and `sstore-frontend` client.
 
-Create the local environment file and start the stack. Docker Compose does not provide fallback values, so `.env` must exist and contain the required settings:
+Create the local environment file and start the stack. Docker Compose does not provide fallback values, so use either a populated `.env` file or a configured Doppler project:
 
 ```bash
 cp .env.example.local .env
 chmod 600 .env
-docker compose up -d --build
+doppler run -- docker compose up -d --build
+```
+
+If your Doppler project is configured with the Compose secrets, run Docker
+Compose through Doppler so the variables are injected without storing them in
+`.env`:
+
+```bash
+brew install dopplerhq/cli/doppler
+doppler login
+doppler setup
+doppler run -- docker compose up -d --build
+```
+
+For this learning AWS deployment, Doppler provides the environment and the
+script copies it to EC2; no local `.env.aws` file is required:
+
+```bash
+brew install dopplerhq/cli/doppler
+doppler login
+doppler setup
+EC2_HOST=<ec2-public-ip-or-dns> ./deploy-aws.sh
 ```
 
 For local development, `.env.example.local` uses `admin` for the PostgreSQL and Keycloak username/password values. Replace them before sharing the environment or using it outside your machine. Keep `.env` private; it is ignored by Git.
@@ -86,17 +108,17 @@ Open the application:
 Check service status and logs:
 
 ```bash
-docker compose ps
-docker compose logs -f keycloak-bootstrap
+doppler run -- docker compose ps
+doppler run -- docker compose logs -f keycloak-bootstrap
 ```
 
 Stop the stack:
 
 ```bash
-docker compose down
+doppler run -- docker compose down
 ```
 
-Use `docker compose down -v` only when you want to delete the local PostgreSQL data volume. PgAdmin is available at http://localhost:5050.
+Use `doppler run -- docker compose down -v` only when you want to delete the local PostgreSQL data volume. PgAdmin is available at http://localhost:5050.
 
 ## Option 2: Kubernetes with Kind
 
@@ -195,7 +217,15 @@ chmod 600 .env
 The frontend configuration is embedded during its image build, so rebuild after changing any `VITE_*` value:
 
 ```bash
-docker compose up -d --build frontend
+doppler run -- docker compose up -d --build frontend
+```
+
+Run the frontend directly during development with Doppler-provided `VITE_*`
+variables:
+
+```bash
+cd frontend
+doppler run -- npm run dev
 ```
 
 Do not commit `.env`, passwords, generated TLS keys, or production secrets.
@@ -205,7 +235,7 @@ Do not commit `.env`, passwords, generated TLS keys, or production secrets.
 If Compose tries to pull `sstore/*:dev` images, use:
 
 ```bash
-docker compose up -d --build
+doppler run -- docker compose up -d --build
 ```
 
 The Compose file is configured with `pull_policy: build` so application images are built locally.
@@ -213,7 +243,7 @@ The Compose file is configured with `pull_policy: build` so application images a
 If login fails after changing frontend configuration, recreate the frontend and rerun the Keycloak bootstrap:
 
 ```bash
-docker compose up -d --build frontend keycloak keycloak-bootstrap
+doppler run -- docker compose up -d --build frontend keycloak keycloak-bootstrap
 ```
 
 If Kubernetes bootstrap appears stuck, inspect it with:
@@ -231,7 +261,7 @@ The bootstrap checks Keycloak through the `keycloak:8080` Service endpoint.
 Validate Compose without starting containers:
 
 ```bash
-docker compose config
+doppler run -- docker compose config
 ```
 
 Render Helm Kubernetes manifests without applying them:
@@ -246,7 +276,7 @@ Build the frontend directly:
 cd frontend
 npm ci
 npm run lint
-npm run build
+doppler run -- npm run build
 ```
 
 ## Project Layout

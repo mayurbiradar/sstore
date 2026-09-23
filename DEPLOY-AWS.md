@@ -52,22 +52,24 @@ Ports `8080` and `9090` are only internal host bindings for Caddy. They do not n
 
 ## 2. Central AWS host configuration
 
-The current Elastic IP is `52.66.251.122`. The AWS environment file contains the central values:
+The current Elastic IP is `100.56.227.77`. The AWS environment file contains the central values:
 
 ```env
-AWS_PUBLIC_IP=52.66.251.122
-AWS_HOSTNAME=52-66-251-122.sslip.io
+AWS_PUBLIC_IP=100.56.227.77
+AWS_HOSTNAME=100-56-227-77.sslip.io
 ```
 
 The public URLs are derived from `AWS_HOSTNAME`:
 
 ```text
-Frontend: https://store.52-66-251-122.sslip.io
-API:      https://api.52-66-251-122.sslip.io
-Keycloak: https://auth.52-66-251-122.sslip.io
+Frontend: https://store.100-56-227-77.sslip.io
+API:      https://api.100-56-227-77.sslip.io
+Keycloak: https://auth.100-56-227-77.sslip.io
 ```
 
-If the Elastic IP changes, update `AWS_PUBLIC_IP` and `AWS_HOSTNAME` in `.env.aws`, and update the GitHub repository variable `AWS_HOSTNAME`. Do not add `https://` to the variable value.
+If the Elastic IP changes, update `AWS_PUBLIC_IP` and `AWS_HOSTNAME` in Doppler,
+and update the GitHub repository variable `AWS_HOSTNAME`. Do not add `https://`
+to the variable value.
 
 ## 3. GitHub Actions and Docker Hub
 
@@ -93,7 +95,7 @@ DOCKERHUB_TOKEN=<Docker Hub personal access token with Read & Write permission>
 Add this GitHub repository variable under **Settings -> Secrets and variables -> Actions -> Variables**:
 
 ```text
-AWS_HOSTNAME=52-66-251-122.sslip.io
+AWS_HOSTNAME=100-56-227-77.sslip.io
 ```
 
 The workflow has the same hostname as a fallback, but configuring the repository variable is recommended.
@@ -114,15 +116,16 @@ From the repository root, these files are used by the one-command deployment:
 
 ```text
 sstore.pem                          SSH key, private and ignored
-.env.aws                            private AWS credentials, ignored
-.env.aws.example                    safe AWS environment template
+Doppler project/configuration        AWS credentials and environment values
 docker-compose.aws.yml              AWS Compose definition
 deploy-aws.sh                       copy and deploy script
 services/keycloak/bootstrap.sh      Keycloak realm/client bootstrap
 services/postgres/init/init-multiple-databases.sh
 ```
 
-The private `.env.aws` must contain your Google and Razorpay credentials. Never commit it or print its values.
+Doppler is the source of truth for this learning deployment. The deployment
+script streams the configured Doppler environment to EC2 and does not create a
+local `.env` file.
 
 ## 5. One-command deployment
 
@@ -131,33 +134,33 @@ From the repository root on your Mac:
 ```bash
 chmod 400 sstore.pem
 chmod +x deploy-aws.sh
-./deploy-aws.sh
+EC2_HOST=<ec2-public-ip-or-dns> ./deploy-aws.sh
 ```
 
 The script automatically:
 
 1. Connects to EC2 over SSH.
 2. Creates the required remote directories.
-3. Copies `.env.aws` as `/home/ubuntu/.env`.
-4. Copies `docker-compose.aws.yml` and both bootstrap scripts.
-5. Installs Docker if it is missing.
-6. Installs Caddy if it is missing.
-7. Stops the previous frontend so Caddy can use ports 80 and 443.
-8. Writes the Caddy reverse-proxy configuration.
-9. Validates Compose.
-10. Pulls the published images.
-11. Starts the stack and recreates `keycloak-bootstrap`.
-12. Prints the final HTTPS URLs.
+3. Copies `docker-compose.aws.yml` and both bootstrap scripts.
+4. Streams the configured Doppler environment as `/home/ubuntu/.env`.
+5. Installs Caddy if it is missing.
+6. Stops the previous frontend so Caddy can use ports 80 and 443.
+7. Writes the Caddy reverse-proxy configuration.
+8. Validates Compose.
+9. Pulls the published images.
+10. Starts the stack and recreates `keycloak-bootstrap`.
+11. Prints the final HTTPS URLs.
 
-The script uses `AWS_PUBLIC_IP`/`AWS_HOSTNAME` from the local environment when supplied. It defaults to the current EC2 IP for this learning deployment.
+`EC2_HOST` is the only deployment-machine-specific value. `AWS_HOSTNAME` and
+all application configuration come from the selected Doppler project/config.
 
 ## 6. AWS environment values
 
-`.env.aws` is private and is copied automatically. Its important values are:
+Doppler must contain these important values:
 
 ```env
-AWS_PUBLIC_IP=52.66.251.122
-AWS_HOSTNAME=52-66-251-122.sslip.io
+AWS_PUBLIC_IP=100.56.227.77
+AWS_HOSTNAME=100-56-227-77.sslip.io
 
 POSTGRES_DB=postgres
 POSTGRES_USER=admin
@@ -195,7 +198,7 @@ Caddy automatically obtains and renews certificates for the three `sslip.io` hos
 The frontend uses standard authorization-code flow with PKCE. Implicit flow is disabled in the Keycloak client. Google OAuth redirect URI:
 
 ```text
-https://auth.52-66-251-122.sslip.io/realms/sstore/broker/google/endpoint
+https://auth.100-56-227-77.sslip.io/realms/sstore/broker/google/endpoint
 ```
 
 Add that exact URI to the Google OAuth client in Google Cloud Console.
@@ -215,9 +218,9 @@ The bootstrap script configures both the `master` and `sstore` realms and update
 Open:
 
 ```text
-Frontend: https://store.52-66-251-122.sslip.io
-Keycloak: https://auth.52-66-251-122.sslip.io/admin/master/console/
-API:      https://api.52-66-251-122.sslip.io
+Frontend: https://store.100-56-227-77.sslip.io
+Keycloak: https://auth.100-56-227-77.sslip.io/admin/master/console/
+API:      https://api.100-56-227-77.sslip.io
 ```
 
 On EC2:

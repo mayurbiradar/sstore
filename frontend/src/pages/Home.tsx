@@ -20,13 +20,15 @@ export default function Home() {
     // anything yet, fall back to the most recently updated visible products
     // so the section never goes empty.
     getVisibleProducts({ featured: true }).then((featured) => {
-      if (featured.length > 0) {
-        setProducts(featured.slice(0, 4))
+      const list = Array.isArray(featured) ? featured : (featured as any)?.content || []
+      if (list.length > 0) {
+        setProducts(list.slice(0, 4))
         setLoading(false)
         return
       }
-      return getVisibleProducts().then((list) => {
-        setProducts(list.slice(0, 4))
+      return getVisibleProducts().then((all) => {
+        const allList = Array.isArray(all) ? all : (all as any)?.content || []
+        setProducts(allList.slice(0, 4))
       })
     }).catch(() => setProducts([])).finally(() => setLoading(false))
   }, [])

@@ -5,6 +5,7 @@ import com.sstore.payment.repository.PaymentRepository;
 import com.sstore.payment.service.PaymentService;
 import com.sstore.payment.service.RazorpayService;
 import com.razorpay.RazorpayException;
+import com.sstore.payment.kafka.PaymentEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ public class PaymentController {
     private final PaymentService paymentService;
     private final RazorpayService razorpayService;
     private final PaymentRepository paymentRepository;
+    private final PaymentEventPublisher eventPublisher;
 
     /**
      * Create (or resume) a Razorpay checkout session for the given order.
@@ -37,6 +39,8 @@ public class PaymentController {
             Authentication authentication) throws RazorpayException {
 
         if (!razorpayService.isConfigured()) {
+            eventPublisher.enqueue("payments", request.orderId().toString(), "PaymentFailed",
+                    Map.of("orderId", request.orderId().toString(), "reason", "Razorpay not configured"));
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(Map.of("error", "Razorpay is not configured"));
         }
@@ -90,6 +94,8 @@ public class PaymentController {
                     .body(Map.of("error", "Signature verification failed"));
         }
         Payment saved = paymentService.markSucceeded(payment.getId(), request.razorpayPaymentId(), request.razorpaySignature());
+        eventPublisher.enqueue("payments", payment.getOrderId().toString(), "PaymentSucceeded",
+                Map.of("orderId", payment.getOrderId().toString(), "paymentId", payment.getId().toString()));
         return ResponseEntity.ok(Map.of(
                 "paymentId", saved.getId().toString(),
                 "status", saved.getStatus()

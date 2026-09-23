@@ -69,28 +69,6 @@ public class OrderService {
         long totalPaise = subtotalPaise + Math.round(subtotalPaise * 0.03);
         order.setTotalAmount(totalPaise);
         Order saved = orderRepository.save(order);
-
-        // Synchronous stock reservation — gives the user immediate feedback
-        // if anything is out of stock. Product-service owns the actual stock
-        // state and validates the reservation at the source of truth.
-        productClient.reserve(saved.getId(), saved.getUserId(), List.copyOf(saved.getItems()));
-
-        Map<String, Object> payload = Map.of(
-                "eventType", "OrderCreated",
-                "orderId", saved.getId().toString(),
-                "userId", saved.getUserId(),
-                "totalAmount", saved.getTotalAmount(),
-                "currency", saved.getCurrency(),
-                "paymentMethod", saved.getPaymentMethod(),
-                "items", saved.getItems().stream().map(it -> Map.of(
-                        "sku", it.getSku(),
-                        "productId", it.getProductId() != null ? it.getProductId().toString() : "",
-                        "productName", it.getProductName(),
-                        "quantity", it.getQuantity())).toList(),
-                "placedAt", saved.getPlacedAt().toString()
-        );
-        eventPublisher.enqueue(ordersTopic, saved.getId().toString(), "OrderCreated", payload);
-
         return saved;
     }
 
@@ -120,6 +98,22 @@ public class OrderService {
             o.setPaymentStatus("PAID");
             o.setStatus("CONFIRMED");
             o.setUpdatedAt(Instant.now());
+            productClient.reserve(o.getId(), o.getUserId(), List.copyOf(o.getItems()));
+            Map<String, Object> payload = Map.of(
+                    "eventType", "OrderCreated",
+                    "orderId", o.getId().toString(),
+                    "userId", o.getUserId(),
+                    "totalAmount", o.getTotalAmount(),
+                    "currency", o.getCurrency(),
+                    "paymentMethod", o.getPaymentMethod(),
+                    "items", o.getItems().stream().map(it -> Map.of(
+                            "sku", it.getSku(),
+                            "productId", it.getProductId() != null ? it.getProductId().toString() : "",
+                            "productName", it.getProductName(),
+                            "quantity", it.getQuantity())).toList(),
+                    "placedAt", o.getPlacedAt().toString()
+            );
+            eventPublisher.enqueue(ordersTopic, o.getId().toString(), "OrderCreated", payload);
             orderRepository.save(o);
         });
     }
@@ -131,9 +125,7 @@ public class OrderService {
                     || o.getPaymentStatus().equals("REFUNDED")) {
                 return;
             }
-            o.setPaymentStatus("FAILED");
-            o.setUpdatedAt(Instant.now());
-            orderRepository.save(o);
+            orderRepository.delete(o);
         });
     }
 

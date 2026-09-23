@@ -55,4 +55,45 @@ class ProductReservationServiceTest {
 
         assertEquals(3, product.getStock());
     }
+
+    @Test
+    void reserveRejectsProductIdThatDoesNotMatchSku() {
+        ProductRepository repo = Mockito.mock(ProductRepository.class);
+        Product product = new Product();
+        product.setId(UUID.randomUUID());
+        product.setSku("SKU-1");
+        product.setStock(5);
+        when(repo.findBySkuForUpdate("SKU-1")).thenReturn(Optional.of(product));
+
+        ProductReservationService service = new ProductReservationService(repo);
+
+        IllegalStateException ex = assertThrows(
+                IllegalStateException.class,
+                () -> service.reserve(List.of(new ProductReservationService.Line("SKU-1", UUID.randomUUID(), 1)))
+        );
+
+        assertTrue(ex.getMessage().contains("does not match SKU"));
+        assertEquals(5, product.getStock());
+    }
+
+    @Test
+    void reserveRejectsUnavailableProduct() {
+        ProductRepository repo = Mockito.mock(ProductRepository.class);
+        Product product = new Product();
+        product.setId(UUID.randomUUID());
+        product.setSku("SKU-1");
+        product.setStock(5);
+        product.setActive(false);
+        when(repo.findBySkuForUpdate("SKU-1")).thenReturn(Optional.of(product));
+
+        ProductReservationService service = new ProductReservationService(repo);
+
+        IllegalStateException ex = assertThrows(
+                IllegalStateException.class,
+                () -> service.reserve(List.of(new ProductReservationService.Line("SKU-1", product.getId(), 1)))
+        );
+
+        assertTrue(ex.getMessage().contains("unavailable"));
+        assertEquals(5, product.getStock());
+    }
 }

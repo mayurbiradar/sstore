@@ -115,7 +115,6 @@ services:
     image: quay.io/keycloak/keycloak:26.3
     container_name: keycloak
     restart: unless-stopped
-    command: start-dev
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -131,6 +130,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ./services/keycloak/bootstrap-admin.sh:/bootstrap-admin.sh:ro
+    entrypoint: ["/bin/sh", "/bootstrap-admin.sh"]
     networks:
       - sstore-net
 
@@ -151,7 +153,8 @@ services:
       - ./services/keycloak/bootstrap.sh:/bootstrap.sh:ro
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
     depends_on:
-      - keycloak
+      keycloak:
+        condition: service_started
     networks:
       - sstore-net
 

@@ -21,9 +21,18 @@ public class ProductReservationService {
     @Transactional
     public void reserve(List<Line> lines) {
         for (Line line : lines) {
+            if (line.quantity() == null || line.quantity() <= 0) {
+                throw new IllegalStateException("Quantity must be greater than zero for " + line.sku());
+            }
             Product product = productRepository.findBySkuForUpdate(line.sku())
                     .orElseThrow(() -> new IllegalStateException("Unknown SKU " + line.sku()));
 
+            if (line.productId() != null && !line.productId().equals(product.getId())) {
+                throw new IllegalStateException("Product does not match SKU " + line.sku());
+            }
+            if (!product.isActive()) {
+                throw new IllegalStateException("Product is unavailable " + line.sku());
+            }
             if (product.getStock() < line.quantity()) {
                 throw new IllegalStateException("Insufficient stock for " + line.sku());
             }
@@ -32,6 +41,24 @@ public class ProductReservationService {
             product.setUpdatedAt(Instant.now());
             productRepository.save(product);
             log.info("Reserved stock for sku={} qty={} remaining={}", line.sku(), line.quantity(), product.getStock());
+        }
+    }
+
+    @Transactional
+    public void release(List<Line> lines) {
+        for (Line line : lines) {
+            if (line.quantity() == null || line.quantity() <= 0) {
+                throw new IllegalStateException("Quantity must be greater than zero for " + line.sku());
+            }
+            Product product = productRepository.findBySkuForUpdate(line.sku())
+                    .orElseThrow(() -> new IllegalStateException("Unknown SKU " + line.sku()));
+            if (line.productId() != null && !line.productId().equals(product.getId())) {
+                throw new IllegalStateException("Product does not match SKU " + line.sku());
+            }
+            product.setStock(product.getStock() + line.quantity());
+            product.setUpdatedAt(Instant.now());
+            productRepository.save(product);
+            log.info("Released stock for sku={} qty={} available={}", line.sku(), line.quantity(), product.getStock());
         }
     }
 

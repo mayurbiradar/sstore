@@ -39,6 +39,14 @@ public class ProductServiceClient {
      * insufficient stock so the caller can fail the order creation.
      */
     public void reserve(UUID orderId, String userId, List<OrderItem> items) {
+        callReservation("/api/products/reservations", orderId, items);
+    }
+
+    public void release(UUID orderId, List<OrderItem> items) {
+        callReservation("/api/products/reservations/release", orderId, items);
+    }
+
+    private void callReservation(String path, UUID orderId, List<OrderItem> items) {
         List<Map<String, Object>> lines = items.stream().map(item -> {
             Map<String, Object> line = new HashMap<>();
             line.put("sku", item.getSku());
@@ -55,7 +63,7 @@ public class ProductServiceClient {
         try {
             RestClient client = restClientBuilder.baseUrl(baseUrl).build();
             client.post()
-                    .uri("/api/products/reservations")
+                    .uri(path)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + currentToken())
                     .body(body)
                     .retrieve()

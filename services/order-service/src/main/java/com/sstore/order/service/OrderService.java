@@ -45,6 +45,7 @@ public class OrderService {
      */
     @Transactional
     public Order createOrder(Order order, Address address, CheckoutMode mode) {
+        if (order.getId() == null) order.setId(UUID.randomUUID());
         Address savedAddress;
         if (address != null && address.getId() != null) {
             savedAddress = addressRepository.findById(address.getId())
@@ -68,6 +69,7 @@ public class OrderService {
                 .sum();
         long totalPaise = subtotalPaise + Math.round(subtotalPaise * 0.03);
         order.setTotalAmount(totalPaise);
+        productClient.reserve(order.getId(), order.getUserId(), List.copyOf(order.getItems()));
         Order saved = orderRepository.save(order);
         return saved;
     }
@@ -98,7 +100,6 @@ public class OrderService {
             o.setPaymentStatus("PAID");
             o.setStatus("CONFIRMED");
             o.setUpdatedAt(Instant.now());
-            productClient.reserve(o.getId(), o.getUserId(), List.copyOf(o.getItems()));
             Map<String, Object> payload = Map.of(
                     "eventType", "OrderCreated",
                     "orderId", o.getId().toString(),
@@ -125,6 +126,7 @@ public class OrderService {
                     || o.getPaymentStatus().equals("REFUNDED")) {
                 return;
             }
+            productClient.release(o.getId(), List.copyOf(o.getItems()));
             orderRepository.delete(o);
         });
     }

@@ -223,6 +223,14 @@ public class ProductController {
         return ResponseEntity.accepted().build();
     }
 
+    @PostMapping("/reservations/release")
+    public ResponseEntity<Void> release(@RequestBody ReservationRequest request) {
+        productReservationService.release(request.lines().stream()
+                .map(line -> new ProductReservationService.Line(line.sku(), line.productId(), line.quantity()))
+                .toList());
+        return ResponseEntity.accepted().build();
+    }
+
     /** JSON-only update endpoint (no image). All optional — partial update. */
     @PutMapping("/{id}")
     public ResponseEntity<Product> update(@PathVariable("id") UUID id, @RequestBody Product patch) {

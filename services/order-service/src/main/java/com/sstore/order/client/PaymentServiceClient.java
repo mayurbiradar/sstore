@@ -1,5 +1,9 @@
 package com.sstore.order.client;
 
+import java.io.IOException;
+import java.util.Map;
+import java.util.UUID;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,9 +14,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.ResourceAccessException;
 
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * Synchronous call into payment-service when a user picks the online payment
@@ -45,7 +48,8 @@ public class PaymentServiceClient {
                     .body(PaymentSessionResponse.class);
         } catch (RestClientResponseException e) {
             log.warn("Payment service session failed: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new RuntimeException("Payment service unavailable: " + e.getStatusCode(), e);
+                throw new ResourceAccessException(
+                    "Payment service unavailable: " + e.getStatusCode(), new IOException(e));
         }
     }
 

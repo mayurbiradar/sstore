@@ -45,7 +45,6 @@ public class OrderService {
      */
     @Transactional
     public Order createOrder(Order order, Address address, CheckoutMode mode) {
-        if (order.getId() == null) order.setId(UUID.randomUUID());
         Address savedAddress;
         if (address != null && address.getId() != null) {
             savedAddress = addressRepository.findById(address.getId())
@@ -69,7 +68,9 @@ public class OrderService {
                 .sum();
         long totalPaise = subtotalPaise + Math.round(subtotalPaise * 0.03);
         order.setTotalAmount(totalPaise);
-        productClient.reserve(order.getId(), order.getUserId(), List.copyOf(order.getItems()));
+        // Order.id is database-generated and must remain null until save().
+        // The inventory endpoint only needs a request correlation id here.
+        productClient.reserve(UUID.randomUUID(), order.getUserId(), List.copyOf(order.getItems()));
         Order saved = orderRepository.save(order);
         return saved;
     }
@@ -84,11 +85,37 @@ public class OrderService {
         // smallest currency unit (paise for INR). Do NOT multiply by 100 here
         // or we'll charge the customer 100x the order total.
         long amount = order.getTotalAmount();
-        PaymentServiceClient.PaymentSessionResponse session = paymentClient.createRazorpaySession(
-                order.getId(), amount, order.getCurrency(), customer);
-        order.setPaymentId(session.paymentId());
-        orderRepository.save(order);
-        return session;
+        try {
+            PaymentServiceClient.PaymentSessionResponse session = paymentClient.createRazorpaySession(
+                    order.getId(), amount, order.getCurrency(), customer);
+            order.setPaymentId(session.paymentId());
+            orderRepository.save(order);
+            return session;
+        } catch (RuntimeException paymentFailure) {
+            releasePendingOrder(order);
+            throw paymentFailure;
+        }
+    }
+
+    @Transactional
+    public void abandonPendingPayment(UUID orderId, String userId) {
+        orderRepository.findById(orderId).ifPresent(order -> {
+            if (!userId.equals(order.getUserId())
+                    || !"ONLINE".equalsIgnoreCase(order.getPaymentMethod())
+                    || !"PENDING".equalsIgnoreCase(order.getPaymentStatus())) {
+                throw new IllegalStateException("Order cannot be abandoned");
+            }
+            releasePendingOrder(order);
+        });
+    }
+
+    private void releasePendingOrder(Order order) {
+        if (order.getId() == null || order.getItems() == null || order.getItems().isEmpty()) {
+            orderRepository.delete(order);
+            return;
+        }
+        productClient.release(order.getId(), List.copyOf(order.getItems()));
+        orderRepository.delete(order);
     }
 
     @Transactional

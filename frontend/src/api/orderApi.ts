@@ -150,6 +150,14 @@ export const startOnlinePaymentSession = (orderId: string, token?: string) =>
     bearer(token),
   ).then(r => r.data);
 
+/** `POST /api/orders/{id}/abandon-payment` — release a pending online order. */
+export const abandonPendingPayment = (orderId: string, token?: string) =>
+  ORDER_API.post<void>(
+    `/${encodeURIComponent(orderId)}/abandon-payment`,
+    {},
+    bearer(token),
+  ).then(r => r.data);
+
 // -----------------------------------------------------------------------------
 // Admin status transitions
 // -----------------------------------------------------------------------------

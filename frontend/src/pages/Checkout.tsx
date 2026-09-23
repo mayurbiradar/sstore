@@ -11,6 +11,7 @@ import { getStoredAccessToken } from '../utils/authUtils';
 import {
   createOrder,
   startOnlinePaymentSession,
+  abandonPendingPayment,
   verifyRazorpayPayment,
   getMyAddresses,
   type Address,
@@ -662,7 +663,15 @@ async function payWithRazorpay(
 
   // 2. Ask order-service to call payment-service and start a Razorpay
   //    session for this order. The response carries the widget params.
-  const session = await startOnlinePaymentSession(order.id, token)
+  let session
+  try {
+    session = await startOnlinePaymentSession(order.id, token)
+  } catch (error) {
+    await abandonPendingPayment(order.id, token).catch(cleanupError =>
+      console.error('Could not release pending order after payment outage:', cleanupError),
+    )
+    throw error
+  }
 
   if (!session?.keyId || !session?.razorpayOrderId || !session?.amount || !session?.paymentId) {
     throw new Error('Razorpay session was not created')
@@ -680,6 +689,9 @@ async function payWithRazorpay(
       theme: { color: '#e11d48' },
       modal: {
         ondismiss: () => {
+          void abandonPendingPayment(order.id, token).catch(cleanupError =>
+            console.error('Could not release cancelled payment order:', cleanupError),
+          )
           toast('Payment cancelled', {
             description: 'You can try again or choose a different method.',
           })

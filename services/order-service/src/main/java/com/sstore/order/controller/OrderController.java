@@ -81,7 +81,8 @@ public class OrderController {
         for (OrderItem item : order.getItems()) item.setOrder(order);
         CheckoutMode mode = "ONLINE".equalsIgnoreCase(order.getPaymentMethod()) ? CheckoutMode.ONLINE : CheckoutMode.COD;
         Order saved = orderService.createOrder(order, address, mode);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        Order response = repo.findByIdWithItems(saved.getId()).orElseThrow();
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
@@ -110,12 +111,19 @@ public class OrderController {
         return ResponseEntity.ok(orderService.startOnlinePayment(order, customer));
     }
 
+    @PostMapping("/{id}/abandon-payment")
+    public ResponseEntity<Void> abandonPayment(@PathVariable UUID id, Authentication authentication) {
+        orderService.abandonPendingPayment(id, authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Order> update(@PathVariable("id") UUID id, @RequestBody Order order) {
         if (!repo.existsById(id)) return ResponseEntity.notFound().build();
         order.setId(id);
-        return ResponseEntity.ok(repo.save(order));
+        repo.save(order);
+        return ResponseEntity.ok(repo.findByIdWithItems(id).orElseThrow());
     }
 
     @DeleteMapping("/{id}")

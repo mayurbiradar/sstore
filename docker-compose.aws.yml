@@ -68,7 +68,6 @@ services:
     image: quay.io/keycloak/keycloak:26.3
     container_name: keycloak
     restart: unless-stopped
-    command: start-dev
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -85,6 +84,9 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    volumes:
+      - ./services/keycloak/bootstrap-admin.sh:/bootstrap-admin.sh:ro
+    entrypoint: ["/bin/sh", "/bootstrap-admin.sh"]
     networks:
       - sstore-net
 

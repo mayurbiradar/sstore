@@ -36,6 +36,8 @@ scp -i "$KEY_FILE" docker-compose.aws.yml \
     "${SSH_TARGET}:${REMOTE_DIR}/"
 scp -i "$KEY_FILE" services/keycloak/bootstrap.sh \
     "${SSH_TARGET}:${REMOTE_DIR}/services/keycloak/"
+scp -i "$KEY_FILE" services/keycloak/bootstrap-admin.sh \
+    "${SSH_TARGET}:${REMOTE_DIR}/services/keycloak/"
 scp -i "$KEY_FILE" services/postgres/init/init-multiple-databases.sh \
     "${SSH_TARGET}:${REMOTE_DIR}/services/postgres/init/"
 

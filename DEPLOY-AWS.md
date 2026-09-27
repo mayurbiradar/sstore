@@ -123,9 +123,9 @@ services/keycloak/bootstrap.sh      Keycloak realm/client bootstrap
 services/postgres/init/init-multiple-databases.sh
 ```
 
-Doppler is the source of truth for this learning deployment. The deployment
-script streams the configured Doppler environment to EC2 and does not create a
-local `.env` file.
+Doppler is only used to stream the `.env` file to EC2. It does not connect to AWS directly — the script uses SSH (`scp`/`ssh`) to copy files and deploy via Docker Compose on the EC2 instance.
+
+How Doppler works here: `doppler secrets download` pulls secrets locally, then pipes them through SSH to create `/home/ubuntu/.env` on EC2. No AWS API calls are made by Doppler.
 
 ## 5. One-command deployment
 
@@ -142,7 +142,7 @@ The script automatically:
 1. Connects to EC2 over SSH.
 2. Creates the required remote directories.
 3. Copies `docker-compose.aws.yml` and both bootstrap scripts.
-4. Streams the configured Doppler environment as `/home/ubuntu/.env`.
+4. Streams the configured Doppler environment (`.env`) to `/home/ubuntu/.env` on EC2 via SSH.
 5. Installs Caddy if it is missing.
 6. Stops the previous frontend so Caddy can use ports 80 and 443.
 7. Writes the Caddy reverse-proxy configuration.
@@ -156,7 +156,7 @@ all application configuration come from the selected Doppler project/config.
 
 ## 6. AWS environment values
 
-Doppler must contain these important values:
+Doppler must contain these important values (including `AWS_HOSTNAME` and host/IP config):
 
 ```env
 AWS_PUBLIC_IP=100.56.227.77
@@ -284,6 +284,72 @@ OTEL_SDK_DISABLED: "true"
 ```
 
 This prevents repeated connection attempts to `localhost:4318`. Enable telemetry only after deploying a collector and configuring its endpoint.
+
+## 12. Deploy using deploy-aws.sh (Docker Compose, not Kubernetes)
+
+This deployment uses `docker-compose.aws.yml` and `deploy-aws.sh`. It does **not** use Kubernetes/Helm.
+
+### Prerequisites
+- Ubuntu EC2 instance with Elastic IP
+- SSH key (`sstore.pem`) configured for the instance
+- SSH key (`sstore.pem`) configured for the instance
+- `.env` file or environment variables set (Doppler is optional — it only streams `.env` to EC2)
+- GitHub Actions workflow completed (images published to Docker Hub)
+
+### Steps
+
+1. Set the EC2 host:
+```bash
+export EC2_HOST=<ec2-public-ip>
+```
+
+2. Ensure SSH key (`sstore.pem`) is in the current project path and has correct permissions:
+```bash
+chmod 400 ./sstore.pem
+chmod +x deploy-aws.sh
+```
+
+### Before running deploy-aws.sh
+
+1. Configure GitHub repository variable:
+```bash
+# In GitHub: Settings -> Variables -> Repository variables
+AWS_HOSTNAME=3-110-163-90.sslip.io
+```
+
+2. Configure Doppler environment (optional — only needed if using Doppler):
+```bash
+doppler setup
+doppler secrets download --no-file --format env
+```
+
+3. Set EC2 host and run:
+```bash
+export EC2_HOST=3.110.163.90
+chmod 400 sstore.pem
+chmod +x deploy-aws.sh
+EC2_HOST=3.110.163.90 ./deploy-aws.sh
+```
+
+The script performs these actions automatically:
+- SSH to EC2 and create directories
+- Copy `docker-compose.aws.yml`, `bootstrap.sh`, and `bootstrap-admin.sh`
+- Stream Doppler secrets to `/home/ubuntu/.env`
+- Install Caddy if missing
+- Configure Caddy reverse proxy for HTTPS
+- Pull published images from Docker Hub
+- Start all services via `docker compose -f docker-compose.aws.yml up -d`
+- Recreate `keycloak-bootstrap` to configure Keycloak
+
+### Verify on EC2 (Docker Compose commands)
+```bash
+cd /home/ubuntu
+docker compose -f docker-compose.aws.yml ps
+docker compose -f docker-compose.aws.yml logs --tail=50 keycloak
+```
+
+### Note on Kubernetes
+This project also includes a Helm chart (`helm/sstore/`) for Kubernetes deployment, but `deploy-aws.sh` specifically uses Docker Compose (`docker-compose.aws.yml`) for the AWS EC2 deployment.
 
 ## 11. Updates and data safety
 
